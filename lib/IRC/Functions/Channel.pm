@@ -1,6 +1,9 @@
 #----------------------------------------------------------
 # libirc: an insanely flexible perl IRC library.          |
+# ntirc: an insanely flexible IRC client.                 |
+# foxy: an insanely flexible IRC bot.                     |
 # Copyright (c) 2011, the NoTrollPlzNet developers        |
+# Copyright (c) 2012, Mitchell Cooper                     |
 # IRC/Functions/Channel: send functions for channel class |
 #----------------------------------------------------------
 package IRC::Functions::Channel;
