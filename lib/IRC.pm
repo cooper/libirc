@@ -1,14 +1,16 @@
 #---------------------------------------------------
 # libirc: an insanely flexible perl IRC library.   |
-# Copyright (c) 2011, the NoTrollPlzNet developers |
+# ntirc: an insanely flexible IRC client.          |
+# foxy: an insanely flexible IRC bot.              |
+# Copyright (c) 2012, the NoTrollPlzNet developers |
+# Copyright (c) 2012, Mitchell Cooper              |
 #---------------------------------------------------
 package IRC;
 
 use warnings;
 use strict;
-use base qw(IRC::EventedObject IRC::Functions::IRC);
+use base qw(EventedObject IRC::Functions::IRC);
 
-use IRC::EventedObject;
 use IRC::User;
 use IRC::Channel;
 use IRC::Handlers;
@@ -17,7 +19,7 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '0.1';
+our $VERSION = '0.2';
 
 # create a new IRC instance
 sub new {
@@ -34,9 +36,6 @@ sub configure {
 
     # XXX users will probably make a reference chain
     # $irc->{users}->[0]->{irc}->{users} and so on
-    $self->{users}    = {};
-    $self->{channels} = {};
-    $self->{events}   = {};
     $self->{me}       = IRC::User->new($self, $nick);
 }
 

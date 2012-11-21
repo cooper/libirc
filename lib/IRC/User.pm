@@ -1,15 +1,22 @@
 #---------------------------------------------------
 # libirc: an insanely flexible perl IRC library.   |
+# ntirc: an insanely flexible IRC client.          |
+# foxy: an insanely flexible IRC bot.              |
 # Copyright (c) 2011, the NoTrollPlzNet developers |
+# Copyright (c) 2012, Mitchell Cooper              |
 # User.pm: the user object class.                  |
 #---------------------------------------------------
 package IRC::User;
 
 use warnings;
 use strict;
-use base qw(IRC::EventedObject IRC::Functions::User);
+use base qw(EventedObject IRC::Functions::User);
 
-# CLASS METHODS
+our $id = 'a';
+
+#####################
+### CLASS METHODS ###
+#####################
 
 sub new {
     my ($class, $irc, $nick) = @_;
@@ -17,7 +24,8 @@ sub new {
     # create a new user object
     bless my $user = {
         nick   => $nick,
-        events => {}
+        events => {},
+        id     => $id++
     }, $class;
 
     $user->{irc}              = $irc; # creates a looping reference XXX
@@ -40,8 +48,18 @@ sub from_string {
     my $user = $irc->{users}->{lc $nick} or return; # or give up
 
     if (defined $user) {
-        $user->{user} = $ident;
-        $user->{host} = $host;
+        my $old_ident = $user->{user};
+        my $old_host  = $user->{host};
+
+        # fire changed events
+        if ($old_ident ne $ident) {
+            $user->{user} = $ident;
+            $user->fire_event(user_change => $old_ident, $ident);
+        }
+        if ($old_host ne $host) {
+            $user->{host} = $host;
+            $user->fire_event(host_change => $old_host, $host);
+        }
     }
 
     return $user
@@ -84,7 +102,9 @@ sub new_from_nick {
     return $irc->{users}->{lc $nick} = $package->new($irc, $nick)
 }
 
-# INSTANCE METHODS
+########################
+### INSTANCE METHODS ###
+########################
 
 # change the nickname and move the object's location
 sub set_nick {
@@ -97,7 +117,7 @@ sub set_nick {
     $user->{nick}                = $newnick;
     $irc->{users}->{lc $newnick} = $user;
 
-    # tell ppl
+    # fire events
     $user->fire_event(nick_change => $oldnick, $newnick);
 }
 

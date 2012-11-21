@@ -1,6 +1,9 @@
 #---------------------------------------------------
 # libirc: an insanely flexible perl IRC library.   |
+# ntirc: an insanely flexible IRC client.          |
+# foxy: an insanely flexible IRC bot.              |
 # Copyright (c) 2011, the NoTrollPlzNet developers |
+# Copyright (c) 2012, Mitchell Cooper              |
 # Utils.pm: various IRC-related tools              |
 #---------------------------------------------------
 package IRC::Utils;

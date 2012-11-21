@@ -1,6 +1,9 @@
 #---------------------------------------------------
 # libirc: an insanely flexible perl IRC library.   |
+# ntirc: an insanely flexible IRC client.          |
+# foxy: an insanely flexible IRC bot.              |
 # Copyright (c) 2011, the NoTrollPlzNet developers |
+# Copyright (c) 2012, Mitchell Cooper              |
 # Handlers.pm: internal IRC command handlers       |
 #---------------------------------------------------
 package IRC::Handlers;
@@ -27,11 +30,7 @@ my %handlers = (
 # applies each handler to an IRC instance
 sub apply_handlers {
     my $irc = shift;
-
-    foreach my $handler (keys %handlers) {
-        $irc->attach_event($handler, $handlers{$handler});
-    }
-
+    $irc->attach_event($_, $handlers{$_}, "libirc.$_", 100) foreach keys %handlers;
     return 1
 }
 
