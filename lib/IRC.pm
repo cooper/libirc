@@ -9,8 +9,8 @@ package IRC;
 
 use warnings;
 use strict;
-use base qw(EventedObject IRC::Functions::IRC);
 use lib '../evented-object';
+use parent qw(EventedObject IRC::Functions::IRC);
 
 use EventedObject;
 use IRC::User;

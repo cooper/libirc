@@ -10,7 +10,7 @@ package IRC::User;
 
 use warnings;
 use strict;
-use base qw(EventedObject IRC::Functions::User);
+use parent qw(EventedObject IRC::Functions::User);
 
 our $id = 'a';
 

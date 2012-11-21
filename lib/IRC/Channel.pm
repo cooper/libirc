@@ -10,7 +10,7 @@ package IRC::Channel;
 
 use warnings;
 use strict;
-use base qw(EventedObject IRC::Functions::Channel);
+use parent qw(EventedObject IRC::Functions::Channel);
 
 # CLASS METHODS
 
