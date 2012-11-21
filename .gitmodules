@@ -1,0 +1,3 @@
+[submodule "evented-object"]
+	path = evented-object
+	url = git://github.com/cooper/evented-object.git

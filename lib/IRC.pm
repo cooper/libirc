@@ -10,7 +10,9 @@ package IRC;
 use warnings;
 use strict;
 use base qw(EventedObject IRC::Functions::IRC);
+use lib '../evented-object';
 
+use EventedObject;
 use IRC::User;
 use IRC::Channel;
 use IRC::Handlers;
