@@ -162,7 +162,7 @@ sub handle_isupport {
 }
 
 sub handle_endofmotd {
-    my $irc = shift;
+    my $irc = shift->{object};
     if ($irc->{autojoin} && ref $irc->{autojoin} eq 'ARRAY') {
         foreach my $channel (@{$irc->{autojoin}}) {
             $irc->send("JOIN $channel");
