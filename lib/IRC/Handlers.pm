@@ -30,7 +30,7 @@ my %handlers = (
 # applies each handler to an IRC instance
 sub apply_handlers {
     my $irc = shift;
-    $irc->register_event($_ => $handlers{$_}, name => "libirc.$_", 100) foreach keys %handlers;
+    $irc->register_event($_ => $handlers{$_}, name => "libirc.$_", priority => 100) foreach keys %handlers;
     return 1
 }
 
