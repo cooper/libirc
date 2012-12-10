@@ -51,6 +51,19 @@ sub on_read_line;
 
 sub configure {
     my ($self, %args) = @_;
+    
+    # if ssl, use IO::Socket::SSL.
+    if ($args{ssl}) {
+        require IO::Socket::SSL;
+        my $sock = IO::Socket::SSL->new(
+            PeerAddr => $self->{temp_host},
+            PeerPort => $self->{temp_port} || 6667,
+            Proto    => 'tcp'
+        );
+        $args{write_handle} = 
+        $args{read_handle}  = $sock;
+    }
+    
     foreach my $key (qw|host port nick user real pass|) {
         my $val = delete $args{$key} or next;
         $self->{"temp_$key"} = $val;
