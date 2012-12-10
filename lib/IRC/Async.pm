@@ -51,7 +51,7 @@ sub on_read_line;
 
 sub configure {
     my ($self, %args) = @_;
-    foreach my $key (qw|host port nick user real|) {
+    foreach my $key (qw|host port nick user real pass|) {
         my $val = delete $args{$key} or next;
         $self->{"temp_$key"} = $val;
     }
@@ -77,9 +77,13 @@ sub login {
     # enable UTF-8
     $self->transport->configure(encoding => 'UTF-8');
 
-    my ($nick, $user, $real) = ( delete $self->{temp_nick}, 
-                                 delete $self->{temp_user},
-                                 delete $self->{temp_real}  );
+    my ($nick, $user, $real, $pass) = (
+        delete $self->{temp_nick}, 
+        delete $self->{temp_user},
+        delete $self->{temp_real},
+        delete $self->{temp_pass};
+    );
+    $self->send("PASS $pass") if defined $pass && length $pass;
     $self->send("NICK $nick");
     $self->send("USER $user * * :$real");
 }
