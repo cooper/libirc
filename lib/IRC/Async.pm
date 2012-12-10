@@ -94,7 +94,7 @@ sub login {
         delete $self->{temp_nick}, 
         delete $self->{temp_user},
         delete $self->{temp_real},
-        delete $self->{temp_pass};
+        delete $self->{temp_pass}
     );
     $self->send("PASS $pass") if defined $pass && length $pass;
     $self->send("NICK $nick");
