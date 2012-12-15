@@ -104,7 +104,7 @@ sub login {
 sub send {
     # IRC.pm's send() isn't actually called, but we can fake it by using this IRC event.
     my $self = shift;
-    $irc->connect && return unless $self->transport;
+    $self->connect && return unless $self->transport;
     $self->fire_event(send => @_);
     $self->write_line(@_);
 }
