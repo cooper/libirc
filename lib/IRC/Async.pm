@@ -73,11 +73,11 @@ sub configure {
 
 sub connect {
     my ($self, %args) = @_;
-    my $on_error   = delete $args{on_error} || sub { exit 1 }; # lazy
+    my $on_error   = $args{on_error} || sub { exit 1 }; # lazy
 
     $self->SUPER::connect(
-        host             => delete $self->{temp_host},
-        service          => delete $self->{temp_port} || 6667,
+        host             => $self->{temp_host},
+        service          => $self->{temp_port} || 6667,
         on_resolve_error => $on_error,
         on_connect_error => $on_error,
         on_connected     => sub { $self->login }
@@ -91,10 +91,10 @@ sub login {
     $self->transport->configure(encoding => 'UTF-8');
 
     my ($nick, $user, $real, $pass) = (
-        delete $self->{temp_nick}, 
-        delete $self->{temp_user},
-        delete $self->{temp_real},
-        delete $self->{temp_pass}
+        $self->{temp_nick}, 
+        $self->{temp_user},
+        $self->{temp_real},
+        $self->{temp_pass}
     );
     $self->send("PASS $pass") if defined $pass && length $pass;
     $self->send("NICK $nick");
