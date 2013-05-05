@@ -16,4 +16,9 @@ sub send_nick {
     $irc->send("NICK $newnick");
 }
 
+sub send_join {
+    my ($irc, $channel_name, $key) = @_;
+    $irc->send("JOIN $channel_name".(defined $key ? q( ).$key : q()));
+}
+
 1

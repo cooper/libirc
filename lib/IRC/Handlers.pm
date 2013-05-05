@@ -327,7 +327,7 @@ sub handle_quit {
 
     # remove user from IRC object
     delete $user->{irc};
-    delete $irc->{users}->{$user->{nick}};
+    delete $irc->{users}->{lc $user->{nick}};
 
     $user->fire_event(quit => $reason);
     $irc->fire_event(user_quit => $user, $reason);
