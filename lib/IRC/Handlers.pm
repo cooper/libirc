@@ -36,7 +36,7 @@ sub apply_handlers {
 
 # handle RPL_ISUPPORT (005)
 sub handle_isupport {
-    my ($event, $data, @args) = @_; my $irc = $event->{object};
+    my ($event, $data, @args) = @_; my $irc = $event->object;
 
     my @stuff = @args[3..$#args];
     my $val;
@@ -162,7 +162,7 @@ sub handle_isupport {
 }
 
 sub handle_endofmotd {
-    my $irc = shift->{object};
+    my $irc = shift->object;
     if ($irc->{autojoin} && ref $irc->{autojoin} eq 'ARRAY') {
         foreach my $channel (@{$irc->{autojoin}}) {
             $irc->send("JOIN $channel");
@@ -174,7 +174,7 @@ sub handle_endofmotd {
 }
 
 sub handle_privmsg {
-    my ($event, $data, @args) = @_; my $irc = $event->{object};
+    my ($event, $data, @args) = @_; my $irc = $event->object;
     my $user    = $irc->new_user_from_string($args[0]);
     my $target  = $args[2];
 
@@ -200,7 +200,7 @@ sub handle_privmsg {
 
 # handle a nick change
 sub handle_nick {
-    my ($event, $data, @args) = @_; my $irc = $event->{object};
+    my ($event, $data, @args) = @_; my $irc = $event->object;
     my $user = $irc->new_user_from_string($args[0]);
     my $old  = $user->{nick};
     $user->set_nick(IRC::Utils::col($args[2]));
@@ -211,7 +211,7 @@ sub handle_nick {
 
 # user joins a channel
 sub handle_join {
-    my ($event, $data, @args) = @_; my $irc = $event->{object};
+    my ($event, $data, @args) = @_; my $irc = $event->object;
     my $user    = $irc->new_user_from_string($args[0]);
     my $channel = $irc->new_channel_from_name($args[2]);
     $channel->add_user($user);
@@ -222,7 +222,7 @@ sub handle_join {
 
 # user parts a channel
 sub handle_part {
-    my ($event, $data, @args) = @_; my $irc = $event->{object};
+    my ($event, $data, @args) = @_; my $irc = $event->object;
     my $user    = $irc->new_user_from_string($args[0]);
     my $channel = $irc->new_channel_from_name($args[2]);
     $channel->remove_user($user);
@@ -233,7 +233,7 @@ sub handle_part {
 
 # RPL_TOPIC
 sub handle_got_topic {
-    my ($event, $data, @args) = @_; my $irc = $event->{object};
+    my ($event, $data, @args) = @_; my $irc = $event->object;
 
     # get the channel
     my $channel = $irc->new_channel_from_name($args[3]);
@@ -244,7 +244,7 @@ sub handle_got_topic {
 
 # RPL_TOPICWHOTIME
 sub handle_got_topic_time {
-    my ($event, $data, @args) = @_; my $irc = $event->{object};
+    my ($event, $data, @args) = @_; my $irc = $event->object;
 
     # get the channel
     my $channel = $irc->new_channel_from_name($args[3]);
@@ -259,7 +259,7 @@ sub handle_got_topic_time {
 
 # RPL_NAMREPLY
 sub handle_namesreply {
-    my ($event, $data, @args) = @_; my $irc = $event->{object};
+    my ($event, $data, @args) = @_; my $irc = $event->object;
     my $channel = $irc->new_channel_from_name($args[4]);
 
     # names with their prefixes in front
@@ -309,13 +309,13 @@ sub handle_namesreply {
 }
 
 sub handle_nick_taken {
-    my ($event, $data, @args) = @_; my $irc = $event->{object};
+    my ($event, $data, @args) = @_; my $irc = $event->object;
     my $nick = $args[3];
     $irc->fire_event(nick_taken => $nick);
 }
 
 sub handle_quit {
-    my ($event, $data, @args) = @_; my $irc = $event->{object};
+    my ($event, $data, @args) = @_; my $irc = $event->object;
     my $user   = $irc->new_user_from_string($args[0]);
     my $reason = defined $args[2] ? IRC::Utils::col((split /\s+/, $data, 3)[2]) : undef;
 
