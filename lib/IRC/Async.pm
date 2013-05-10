@@ -96,6 +96,7 @@ sub login {
         $self->{temp_real},
         $self->{temp_pass}
     );
+    $self->send('CAP LS');
     $self->send("PASS $pass") if defined $pass && length $pass;
     $self->send("NICK $nick");
     $self->send("USER $user * * :$real");
