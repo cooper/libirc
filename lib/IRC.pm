@@ -114,4 +114,11 @@ sub user_from_string {
     IRC::User::from_string($irc, $nick);
 }
 
+# determine if the ircd we're connected to suppots a particular capability
+sub has_cap
+{
+    my ($irc, $cap) = @_;
+    return $irc->{ircd}->{capab}->{lc $cap};
+}
+
 1
