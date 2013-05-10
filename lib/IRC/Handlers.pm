@@ -24,7 +24,8 @@ my %handlers = (
     raw_nick    => \&handle_nick,
     raw_join    => \&handle_join,
     raw_part    => \&handle_part,
-    raw_quit    => \&handle_quit
+    raw_quit    => \&handle_quit,
+    raw_cap     => \&handle_cap,
 );
 
 # applies each handler to an IRC instance
@@ -339,4 +340,34 @@ sub handle_quit {
     $irc->fire_event(user_quit => $user, $reason);
 }
 
+# Handle CAP
+sub handle_cap {
+    my ($irc, $event, $data, @args) = @_;
+    my $subcommand = $args[3];
+    my $params = IRC::Utils::col(join ' ', @args[4..$#args]);
+    given (uc $subcommand)
+    {
+        when ('LS')
+        {
+            $irc->{ircd}->{capab}->{$_} = 1 foreach (split(' ', $params));
+        }
+        when ('ACK')
+        {
+            foreach (split(' ', $params))
+            {
+                if ($_ =~ m/^(-|~|=)(.*)$/)
+                {
+                    delete $irc->{active_capab}->{$2} if $1 eq '-';
+                    $irc->send("CAP ACK $2") if $1 eq '~';
+                }
+                else
+                {
+                    $irc->{active_capab}->{$_} = 1;
+                }
+            }
+        }
+    }
+}
+
 1
+
