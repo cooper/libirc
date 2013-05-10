@@ -25,7 +25,7 @@ my %handlers = (
     raw_join    => \&handle_join,
     raw_part    => \&handle_part,
     raw_quit    => \&handle_quit,
-    raw_cap     => \&handle_cap,
+    raw_cap     => \&handle_cap
 );
 
 # applies each handler to an IRC instance
@@ -358,7 +358,7 @@ sub handle_cap {
                 if ($_ =~ m/^(-|~|=)(.*)$/)
                 {
                     delete $irc->{active_capab}->{$2} if $1 eq '-';
-                    $irc->send("CAP ACK $2") if $1 eq '~';
+                    $irc->send("CAP ACK $2") if $1 eq '~'; # XXX rework this logic
                 }
                 else
                 {
