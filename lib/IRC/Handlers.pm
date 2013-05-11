@@ -370,6 +370,7 @@ sub handle_cap {
                 {
                     $irc->{active_capab}->{$_} = 1;
                     $irc->fire_event(cap_ack => $_);
+                    $irc->fire_event("cap_ack_".$_);
                 }
             }
         }
