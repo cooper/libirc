@@ -380,7 +380,14 @@ sub handle_cap {
 sub handle_account {
     my ($irc, $event, $data, @args) = @_;
     my $user    = $irc->new_user_from_string($args[0]);
-    $user->set_account($args[2]);
+    if ($args[2] eq '*')
+    {
+        delete $user->{account};
+    }
+    else
+    {
+        $user->set_account($args[2]);
+    }
 }
 
 1

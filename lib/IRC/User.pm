@@ -143,14 +143,7 @@ sub in_common {
 # set account name
 sub set_account {
     my ($user, $account) = @_;
-    if ($account eq '*')
-    {
-        delete $user->{account};
-    }
-    else
-    {
-        $user->{account} = $account;
-    }
+    $user->{account} = $account;
 }
 
 1
