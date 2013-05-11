@@ -25,7 +25,8 @@ my %handlers = (
     raw_join    => \&handle_join,
     raw_part    => \&handle_part,
     raw_quit    => \&handle_quit,
-    raw_cap     => \&handle_cap
+    raw_cap     => \&handle_cap,
+    raw_account => \&handle_account
 );
 
 # applies each handler to an IRC instance
@@ -312,6 +313,7 @@ sub handle_namesreply {
 
         # apply the levels
         foreach my $level (@levels) {
+            say "$$user{nick} is $level";
             $channel->set_status($user, $level);
             $irc->fire_event(channel_set_user_status => $user, $level);
         }
@@ -348,7 +350,7 @@ sub handle_quit {
 sub handle_cap {
     my ($irc, $event, $data, @args) = @_;
     my $subcommand = $args[3];
-    my $params = IRC::Utils::col(join ' ', @args[4..$#args]);
+    my $params     = IRC::Utils::col(join ' ', @args[4..$#args]);
     given (uc $subcommand)
     {
         when ('LS')
@@ -372,6 +374,13 @@ sub handle_cap {
             }
         }
     }
+}
+
+# Handle ACCOUNT
+sub handle_account {
+    my ($irc, $event, $data, @args) = @_;
+    my $user    = $irc->new_user_from_string($args[0]);
+    $user->set_account($args[2]);
 }
 
 1
