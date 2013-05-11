@@ -40,7 +40,7 @@ use parent qw(IO::Async::Protocol::LineStream IRC);
 sub new {
     my ($class, %opts) = @_;
     my $self = $class->SUPER::new(%opts);
-    $self->IRC::configure($opts{nick});
+    $self->IRC::configure_irc(%opts);
     $self->IRC::Handlers::apply_handlers();
     #$self->Handlers::apply_handlers();
     return $self
@@ -64,7 +64,7 @@ sub configure {
         $args{read_handle}  = $sock;
     }
     
-    foreach my $key (qw|host port nick user real pass|) {
+    foreach my $key (qw|host port nick user real pass sasl_user sasl_pass|) {
         my $val = delete $args{$key} or next;
         $self->{"temp_$key"} = $val;
     }
@@ -100,6 +100,21 @@ sub login {
     $self->send("PASS $pass") if defined $pass && length $pass;
     $self->send("NICK $nick");
     $self->send("USER $user * * :$real");
+    if ($self->{temp_sasl_user} && defined $self->{temp_sasl_pass})
+    {
+        $self->send('CAP REQ sasl');
+        $self->on(cap_ack_sasl => sub {
+                $self->send('AUTHENTICATE PLAIN');
+                $self->send('AUTHENTICATE +');
+                my $str = encode_base64(join("\0", $self->{temp_sasl_user}, $self->{temp_sasl_user}, $self->{temp_sasl_pass}));
+                $self->send("AUTHENTICATE $str");
+            }
+        );
+    }
+    else
+    {
+        $self->send('CAP END');
+    }
 }
 
 sub send {

@@ -27,17 +27,23 @@ sub new {
     my ($class, %opts) = @_;
 
     bless my $irc = {}, $class;
-    $irc->configure($opts{nick});
+    $irc->configure(%opts);
 
     return $irc
 }
 
-sub configure {
-    my ($self, $nick) = @_;
+sub configure_irc {
+    my ($self, %opts) = @_;
 
     # XXX users will probably make a reference chain
     # $irc->{users}->[0]->{irc}->{users} and so on
-    $self->{me}       = IRC::User->new($self, $nick);
+    $self->{me}       = IRC::User->new($self, $opts{nick});
+
+    # Do we need SASL?
+    if ($opts{sasl_user} && defined $opts{sasl_pass} && !$INC{'MIME/Base64.pm'}) {
+        require MIME::Base64;
+        MIME::Base64->import('encode_base64');
+    }
 }
 
 # parse a raw piece of IRC data

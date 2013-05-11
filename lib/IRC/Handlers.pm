@@ -20,13 +20,17 @@ my %handlers = (
     raw_376     => \&handle_endofmotd,
     raw_422     => \&handle_endofmotd, # no motd file
     raw_433     => \&handle_nick_taken,
+    raw_903     => \&handle_sasldone,
+    raw_904     => \&handle_sasldone,
+    raw_906     => \&handle_sasldone,
     raw_privmsg => \&handle_privmsg,
     raw_nick    => \&handle_nick,
     raw_join    => \&handle_join,
     raw_part    => \&handle_part,
     raw_quit    => \&handle_quit,
     raw_cap     => \&handle_cap,
-    raw_account => \&handle_account
+    raw_account => \&handle_account,
+
 );
 
 # applies each handler to an IRC instance
@@ -389,6 +393,13 @@ sub handle_account {
     {
         $user->set_account($args[2]);
     }
+}
+
+# Handle SASL completion
+sub handle_sasldone
+{
+    my ($irc, $event, $data, @args) = @_;
+    $irc->send('CAP END');
 }
 
 1
