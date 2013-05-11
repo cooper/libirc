@@ -115,10 +115,15 @@ sub user_from_string {
 }
 
 # determine if the ircd we're connected to suppots a particular capability
-sub has_cap
-{
+sub has_cap {
     my ($irc, $cap) = @_;
     return $irc->{ircd}->{capab}->{lc $cap};
+}
+
+# determine if we have told the server we want a CAP, and the server is okay with it.
+sub cap_enabled {
+    my ($irc, $cap) = @_;
+    return $irc->{active_capab}->{lc $cap};
 }
 
 1
