@@ -222,7 +222,11 @@ sub handle_join {
     my $user    = $irc->new_user_from_string($args[0]);
     my $channel = $irc->new_channel_from_name($args[2]);
     $channel->add_user($user);
-
+    # If extended-join is enabled, try to get account name
+    if ($irc->cap_enabled('extended-join')) 
+    {
+        $user->set_account($args[3]) if $args[3] ne '*'; # Set account name (* = not logged in)
+    }
     $user->fire_event(joined_channel => $channel);
     $irc->fire_event(user_joined_channel => $user, $channel);
 }
