@@ -106,8 +106,23 @@ sub login {
         $self->on(cap_ack_sasl => sub {
                 $self->send('AUTHENTICATE PLAIN');
                 $self->send('AUTHENTICATE +');
-                my $str = encode_base64(join("\0", $self->{temp_sasl_user}, $self->{temp_sasl_user}, $self->{temp_sasl_pass}));
-                $self->send("AUTHENTICATE $str");
+                my $str = MIME::Base64::encode_base64(join("\0", $self->{temp_sasl_user}, $self->{temp_sasl_user}, $self->{temp_sasl_pass}), "");
+                if (length $str == 0) {
+                    $self->send('AUTHENTICATE +');
+                    return;
+                }
+                else {
+                    while (length $str >= 400) {
+                        my $substr = substr $str, 0, 400, '';
+                        $self->send("AUTHENTICATE $substr");
+                    }
+                    if (length $str) {
+                        $self->send("AUTHENTICATE $str");
+                    }
+                    else {
+                        $self->send("AUTHENTICATE +");
+                    }
+                }
             }
         );
     }

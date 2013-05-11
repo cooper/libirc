@@ -42,7 +42,6 @@ sub configure_irc {
     # Do we need SASL?
     if ($opts{sasl_user} && defined $opts{sasl_pass} && !$INC{'MIME/Base64.pm'}) {
         require MIME::Base64;
-        MIME::Base64->import('encode_base64');
     }
 }
 
