@@ -20,11 +20,17 @@ my %handlers = (
     raw_376     => \&handle_endofmotd,
     raw_422     => \&handle_endofmotd, # no motd file
     raw_433     => \&handle_nick_taken,
+    raw_903     => \&handle_sasldone,
+    raw_904     => \&handle_sasldone,
+    raw_906     => \&handle_sasldone,
     raw_privmsg => \&handle_privmsg,
     raw_nick    => \&handle_nick,
     raw_join    => \&handle_join,
     raw_part    => \&handle_part,
-    raw_quit    => \&handle_quit
+    raw_quit    => \&handle_quit,
+    raw_cap     => \&handle_cap,
+    raw_account => \&handle_account,
+
 );
 
 # applies each handler to an IRC instance
@@ -221,7 +227,11 @@ sub handle_join {
     my $user    = $irc->new_user_from_string($args[0]);
     my $channel = $irc->new_channel_from_name($args[2]);
     $channel->add_user($user);
-
+    # If extended-join is enabled, try to get account name
+    if ($irc->cap_enabled('extended-join')) 
+    {
+        $user->set_account($args[3]) if $args[3] ne '*'; # Set account name (* = not logged in)
+    }
     $user->fire_event(joined_channel => $channel);
     $irc->fire_event(user_joined_channel => $user, $channel);
 }
@@ -307,6 +317,7 @@ sub handle_namesreply {
 
         # apply the levels
         foreach my $level (@levels) {
+            say "$$user{nick} is $level";
             $channel->set_status($user, $level);
             $irc->fire_event(channel_set_user_status => $user, $level);
         }
@@ -339,4 +350,57 @@ sub handle_quit {
     $irc->fire_event(user_quit => $user, $reason);
 }
 
+# Handle CAP
+sub handle_cap {
+    my ($irc, $event, $data, @args) = @_;
+    my $subcommand = $args[3];
+    my $params     = IRC::Utils::col(join ' ', @args[4..$#args]);
+    given (uc $subcommand)
+    {
+        when ('LS')
+        {
+            $irc->{ircd}->{capab}->{$_} = 1 foreach (split(' ', $params));
+        }
+        when ('ACK')
+        {
+            foreach (split(' ', $params))
+            {
+                if ($_ =~ m/^(-|~|=)(.*)$/)
+                {
+                    delete $irc->{active_capab}->{$2} if $1 eq '-';
+                    $irc->send("CAP ACK $2") if $1 eq '~'; # XXX rework this logic
+                }
+                else
+                {
+                    $irc->{active_capab}->{$_} = 1;
+                    $irc->fire_event(cap_ack => $_);
+                    $irc->fire_event("cap_ack_".$_);
+                }
+            }
+        }
+    }
+}
+
+# Handle ACCOUNT
+sub handle_account {
+    my ($irc, $event, $data, @args) = @_;
+    my $user    = $irc->new_user_from_string($args[0]);
+    if ($args[2] eq '*')
+    {
+        delete $user->{account};
+    }
+    else
+    {
+        $user->set_account($args[2]);
+    }
+}
+
+# Handle SASL completion
+sub handle_sasldone
+{
+    my ($irc, $event, $data, @args) = @_;
+    $irc->send('CAP END');
+}
+
 1
+

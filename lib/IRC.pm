@@ -27,17 +27,22 @@ sub new {
     my ($class, %opts) = @_;
 
     bless my $irc = {}, $class;
-    $irc->configure($opts{nick});
+    $irc->configure(%opts);
 
     return $irc
 }
 
-sub configure {
-    my ($self, $nick) = @_;
+sub configure_irc {
+    my ($self, %opts) = @_;
 
     # XXX users will probably make a reference chain
     # $irc->{users}->[0]->{irc}->{users} and so on
-    $self->{me}       = IRC::User->new($self, $nick);
+    $self->{me}       = IRC::User->new($self, $opts{nick});
+
+    # Do we need SASL?
+    if ($opts{sasl_user} && defined $opts{sasl_pass} && !$INC{'MIME/Base64.pm'}) {
+        require MIME::Base64;
+    }
 }
 
 # parse a raw piece of IRC data
@@ -112,6 +117,18 @@ sub new_user_from_string {
 sub user_from_string {
     my ($irc, $nick) = @_;
     IRC::User::from_string($irc, $nick);
+}
+
+# determine if the ircd we're connected to suppots a particular capability
+sub has_cap {
+    my ($irc, $cap) = @_;
+    return $irc->{ircd}->{capab}->{lc $cap};
+}
+
+# determine if we have told the server we want a CAP, and the server is okay with it.
+sub cap_enabled {
+    my ($irc, $cap) = @_;
+    return $irc->{active_capab}->{lc $cap};
 }
 
 1
