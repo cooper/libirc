@@ -105,7 +105,6 @@ sub login {
         $self->send('CAP REQ sasl');
         $self->on(cap_ack_sasl => sub {
                 $self->send('AUTHENTICATE PLAIN');
-                $self->send('AUTHENTICATE +');
                 my $str = MIME::Base64::encode_base64(join("\0", $self->{temp_sasl_user}, $self->{temp_sasl_user}, $self->{temp_sasl_pass}), "");
                 if (length $str == 0) {
                     $self->send('AUTHENTICATE +');
