@@ -317,7 +317,6 @@ sub handle_namesreply {
 
         # apply the levels
         foreach my $level (@levels) {
-            say "$$user{nick} is $level";
             $channel->set_status($user, $level);
             $irc->fire_event(channel_set_user_status => $user, $level);
         }
