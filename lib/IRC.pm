@@ -21,24 +21,30 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '0.5';
+our $VERSION = '0.6';
 
 # create a new IRC instance
 sub new {
     my ($class, %opts) = @_;
     
     bless my $irc = {}, $class;
-    $irc->configure(%opts);
+    configure($irc, %opts);
     
     return $irc;
 }
 
 # configure the IRC object.
 sub configure {
-    my ($self, %opts) = @_;
+    my ($irc, %opts) = @_;
 
     # create own user object.
-    $self->{me} = IRC::User->new($self, $opts{nick});
+    $irc->{me} ||= IRC::User->new($irc, $opts{nick});
+
+    # apply default handlers.
+    if (!$irc->{_applied_handlers}) {
+        $irc->IRC::Handlers::apply_handlers();
+        $irc->{_applied_handlers} = 1;
+    }
 
     # Do we need SASL?
     if ($opts{sasl_user} && defined $opts{sasl_pass} && !$INC{'MIME/Base64.pm'}) {
@@ -75,6 +81,70 @@ sub parse_data {
     $irc->fire_event("raw_$command", $data, @args);
     $irc->fire_event(raw => $data, @args); # for anything
 
+}
+
+# send login information.
+sub login {
+    my $irc = shift;
+    
+    my ($nick, $user, $real, $pass) = (
+        $irc->{temp_nick}, 
+        $irc->{temp_user},
+        $irc->{temp_real},
+        $irc->{temp_pass}
+    );
+    
+    # request capabilities.
+    $irc->send('CAP LS');
+    
+    # send login information.
+    $irc->send("PASS $pass") if defined $pass && length $pass;
+    $irc->send("NICK $nick");
+    $irc->send("USER $user * * :$real");
+    
+    # SASL authentication.
+    if ($irc->{temp_sasl_user} && defined $irc->{temp_sasl_pass}) {
+        $irc->send('CAP REQ sasl');
+        $irc->on(cap_ack_sasl => sub {
+            $irc->send('AUTHENTICATE PLAIN');
+            
+            my $str = MIME::Base64::encode_base64(join("\0",
+                $irc->{temp_sasl_user},
+                $irc->{temp_sasl_user},
+                $irc->{temp_sasl_pass}
+            ), '');
+            
+            if (!length $str) {
+                $irc->send('AUTHENTICATE +');
+                return;
+            }
+            
+            else {
+                while (length $str >= 400) {
+                    my $substr = substr $str, 0, 400, '';
+                    $irc->send("AUTHENTICATE $substr");
+                }
+                
+                if (length $str) {
+                    $irc->send("AUTHENTICATE $str");
+                }
+                
+                else {
+                    $irc->send("AUTHENTICATE +");
+                }
+            }
+        });
+    }
+    
+    # SASL not enabled.
+    else { $irc->send('CAP END') }
+    
+}
+
+# send data.
+sub send {
+    my ($irc, $data) = @_;
+    $irc->fire_event(send => $data);
 }
 
 # return a channel from its name

@@ -36,15 +36,28 @@ package IRC::Async;
 use strict;
 use warnings;
 use parent qw(IO::Async::Protocol::LineStream IRC);
+use 5.010;
 
 sub new {
     my ($class, %opts) = @_;
     my $self = $class->SUPER::new(%opts);
 
-    # apply core handlers.
-    $self->IRC::Handlers::apply_handlers();
-
     return $self;
+}
+
+sub _init {
+    my $self = shift;
+    $self->SUPER::_init(@_);
+   
+    say '_init got called by ', (caller)[0];
+   
+    # data send callback.
+    $self->on(send => sub {
+        my ($event, $data) = @_;
+        $self->connect && return unless $self->transport;
+        $self->write_line($data);
+    }, name => 'irc.async.send');
+
 }
 
 sub on_read_line;
@@ -52,6 +65,8 @@ sub on_read_line;
 
 sub configure {
     my ($self, %opts) = @_;
+    
+    say 'got called by ', (caller)[0];
     
     # libirc configure.
     $self->IRC::configure(%opts);
@@ -69,12 +84,12 @@ sub configure {
     }
     
     foreach my $key (qw|host port nick user real pass sasl_user sasl_pass|) {
-        my $val = delete $opts{$key} or next;
+        defined(my $val = delete $opts{$key}) or next;
         $self->{"temp_$key"} = $val;
     }
     
     $self->SUPER::configure(%opts);
-    
+
 }
 
 sub connect {
@@ -96,66 +111,8 @@ sub login {
 
     # enable UTF-8.
     $self->transport->configure(encoding => 'UTF-8');
-
-    my ($nick, $user, $real, $pass) = (
-        $self->{temp_nick}, 
-        $self->{temp_user},
-        $self->{temp_real},
-        $self->{temp_pass}
-    );
+    $self->IRC::login();
     
-    # request capabilities.
-    $self->send('CAP LS');
-    
-    # send login information.
-    $self->send("PASS $pass") if defined $pass && length $pass;
-    $self->send("NICK $nick");
-    $self->send("USER $user * * :$real");
-    
-    # SASL authentication.
-    if ($self->{temp_sasl_user} && defined $self->{temp_sasl_pass}) {
-        $self->send('CAP REQ sasl');
-        $self->on(cap_ack_sasl => sub {
-            $self->send('AUTHENTICATE PLAIN');
-            
-            my $str = MIME::Base64::encode_base64(join("\0",
-                $self->{temp_sasl_user},
-                $self->{temp_sasl_user},
-                $self->{temp_sasl_pass}
-            ), '');
-            
-            if (!length $str) {
-                $self->send('AUTHENTICATE +');
-                return;
-            }
-            
-            else {
-                while (length $str >= 400) {
-                    my $substr = substr $str, 0, 400, '';
-                    $self->send("AUTHENTICATE $substr");
-                }
-                
-                if (length $str) {
-                    $self->send("AUTHENTICATE $str");
-                }
-                
-                else {
-                    $self->send("AUTHENTICATE +");
-                }
-            }
-        });
-    }
-    
-    # SASL not enabled.
-    else { $self->send('CAP END') }
-    
-}
-
-sub send {
-    my $self = shift;
-    $self->connect && return unless $self->transport;
-    $self->fire_event(send => @_);
-    $self->write_line(@_);
 }
 
 1
