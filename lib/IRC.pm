@@ -12,6 +12,7 @@ use strict;
 use parent qw(EventedObject IRC::Functions::IRC);
 
 use EventedObject;
+
 use IRC::User;
 use IRC::Channel;
 use IRC::Handlers;
@@ -25,11 +26,25 @@ our $VERSION = '0.5';
 # create a new IRC instance
 sub new {
     my ($class, %opts) = @_;
-
+    
     bless my $irc = {}, $class;
-    $irc->{me} = IRC::User->new($irc, $opts{nick});
-
+    $irc->configure(%opts);
+    
     return $irc;
+}
+
+# configure the IRC object.
+sub configure {
+    my ($self, %opts) = @_;
+
+    # create own user object.
+    $self->{me} = IRC::User->new($self, $opts{nick});
+
+    # Do we need SASL?
+    if ($opts{sasl_user} && defined $opts{sasl_pass} && !$INC{'MIME/Base64.pm'}) {
+        require MIME::Base64;
+    }
+    
 }
 
 # parse a raw piece of IRC data
@@ -99,6 +114,18 @@ sub new_user_from_string {
 sub user_from_string {
     my ($irc, $nick) = @_;
     IRC::User::from_string($irc, $nick);
+}
+
+# determine if the ircd we're connected to suppots a particular capability.
+sub has_cap {
+    my ($irc, $cap) = @_;
+    return $irc->{ircd}->{capab}->{lc $cap};
+}
+
+# determine if we have told the server we want a CAP, and the server is okay with it.
+sub cap_enabled {
+    my ($irc, $cap) = @_;
+    return $irc->{active_capab}->{lc $cap};
 }
 
 1

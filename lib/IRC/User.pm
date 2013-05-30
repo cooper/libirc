@@ -144,4 +144,10 @@ sub in_common {
     return
 }
 
+# set account name
+sub set_account {
+    my ($user, $account) = @_;
+    $user->{account} = $account;
+}
+
 1

@@ -40,7 +40,8 @@ use parent qw(IO::Async::Protocol::LineStream IRC);
 sub new {
     my ($class, %opts) = @_;
     my $self = $class->SUPER::new(%opts);
-    
+
+    # apply core handlers.
     $self->IRC::Handlers::apply_handlers();
 
     return $self;
@@ -50,32 +51,36 @@ sub on_read_line;
 *on_read_line = *IRC::parse_data;
 
 sub configure {
-    my ($self, %args) = @_;
+    my ($self, %opts) = @_;
+    
+    # libirc configure.
+    $self->IRC::configure(%opts);
     
     # if ssl, use IO::Socket::SSL.
-    if ($args{ssl}) {
+    if ($opts{ssl}) {
         require IO::Socket::SSL;
         my $sock = IO::Socket::SSL->new(
             PeerAddr => $self->{host},
             PeerPort => $self->{port} || 6697,
             Proto    => 'tcp'
         );
-        $args{write_handle} = 
-        $args{read_handle}  = $sock;
+        $opts{write_handle} = 
+        $opts{read_handle}  = $sock;
     }
     
-    foreach my $key (qw|sasl_user sasl_pass host port nick user real pass|) {
-        my $val = delete $args{$key} or next;
+
+    foreach my $key (qw|host port nick user real pass sasl_user sasl_pass|) {
+        my $val = delete $opts{$key} or next;
         $self->{"temp_$key"} = $val;
     }
     
-    $self->SUPER::configure(%args);
+    $self->SUPER::configure(%opts);
     
 }
 
 sub connect {
-    my ($self, %args) = @_;
-    my $on_error   = $args{on_error} || sub { exit 1 }; # lazy
+    my ($self, %opts) = @_;
+    my $on_error   = $opts{on_error} || sub { exit 1 }; # lazy
 
     $self->SUPER::connect(
         host             => $self->{temp_host},
@@ -90,7 +95,7 @@ sub connect {
 sub login {
     my $self = shift;
 
-    # enable UTF-8
+    # enable UTF-8.
     $self->transport->configure(encoding => 'UTF-8');
 
     my ($nick, $user, $real, $pass) = (
@@ -99,9 +104,52 @@ sub login {
         $self->{temp_real},
         $self->{temp_pass}
     );
+    
+    # request capabilities.
+    $self->send('CAP LS');
+    
+    # send login information.
     $self->send("PASS $pass") if defined $pass && length $pass;
     $self->send("NICK $nick");
     $self->send("USER $user * * :$real");
+    
+    # SASL authentication.
+    if ($self->{temp_sasl_user} && defined $self->{temp_sasl_pass}) {
+        $self->send('CAP REQ sasl');
+        $self->on(cap_ack_sasl => sub {
+            $self->send('AUTHENTICATE PLAIN');
+            
+            my $str = MIME::Base64::encode_base64(join("\0",
+                $self->{temp_sasl_user},
+                $self->{temp_sasl_user},
+                $self->{temp_sasl_pass}
+            ), '');
+            
+            if (!length $str) {
+                $self->send('AUTHENTICATE +');
+                return;
+            }
+            
+            else {
+                while (length $str >= 400) {
+                    my $substr = substr $str, 0, 400, '';
+                    $self->send("AUTHENTICATE $substr");
+                }
+                
+                if (length $str) {
+                    $self->send("AUTHENTICATE $str");
+                }
+                
+                else {
+                    $self->send("AUTHENTICATE +");
+                }
+            }
+        });
+    }
+    
+    # SASL not enabled.
+    else { $self->send('CAP END') }
+    
 }
 
 sub send {
