@@ -68,7 +68,6 @@ sub configure {
         $opts{read_handle}  = $sock;
     }
     
-
     foreach my $key (qw|host port nick user real pass sasl_user sasl_pass|) {
         my $val = delete $opts{$key} or next;
         $self->{"temp_$key"} = $val;
@@ -80,11 +79,11 @@ sub configure {
 
 sub connect {
     my ($self, %opts) = @_;
-    my $on_error   = $opts{on_error} || sub { exit 1 }; # lazy
+    my $on_error   = $opts{on_error} || sub { die }; # lazy
 
     $self->SUPER::connect(
-        host             => $self->{temp_host},
-        service          => $self->{temp_port} || 6667,
+        host             => $opts{host} || $self->{temp_host},
+        service          => $opts{port} || $self->{temp_port} || 6667,
         on_resolve_error => $on_error,
         on_connect_error => $on_error,
         on_connected     => sub { $self->login }
@@ -153,7 +152,6 @@ sub login {
 }
 
 sub send {
-    # IRC.pm's send() isn't actually called, but we can fake it by using this IRC event.
     my $self = shift;
     $self->connect && return unless $self->transport;
     $self->fire_event(send => @_);
