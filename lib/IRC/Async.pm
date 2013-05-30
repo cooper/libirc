@@ -40,10 +40,10 @@ use parent qw(IO::Async::Protocol::LineStream IRC);
 sub new {
     my ($class, %opts) = @_;
     my $self = $class->SUPER::new(%opts);
-    $self->IRC::configure($opts{nick});
+    
     $self->IRC::Handlers::apply_handlers();
-    #$self->Handlers::apply_handlers();
-    return $self
+
+    return $self;
 }
 
 sub on_read_line;
@@ -56,19 +56,21 @@ sub configure {
     if ($args{ssl}) {
         require IO::Socket::SSL;
         my $sock = IO::Socket::SSL->new(
-            PeerAddr => $self->{temp_host},
-            PeerPort => $self->{temp_port} || 6667,
+            PeerAddr => $self->{host},
+            PeerPort => $self->{port} || 6697,
             Proto    => 'tcp'
         );
         $args{write_handle} = 
         $args{read_handle}  = $sock;
     }
     
-    foreach my $key (qw|host port nick user real pass|) {
+    foreach my $key (qw|sasl_user sasl_pass host port nick user real pass|) {
         my $val = delete $args{$key} or next;
         $self->{"temp_$key"} = $val;
     }
+    
     $self->SUPER::configure(%args);
+    
 }
 
 sub connect {
@@ -82,6 +84,7 @@ sub connect {
         on_connect_error => $on_error,
         on_connected     => sub { $self->login }
     );
+    
 }
 
 sub login {

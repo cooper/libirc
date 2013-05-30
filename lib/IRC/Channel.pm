@@ -3,7 +3,7 @@
 # ntirc: an insanely flexible IRC client.          |
 # foxy: an insanely flexible IRC bot.              |
 # Copyright (c) 2011, the NoTrollPlzNet developers |
-# Copyright (c) 2012, Mitchell Cooper              |
+# Copyright (c) 2012-13, Mitchell Cooper           |
 # Channel.pm: the channel object class.            |
 #---------------------------------------------------
 package IRC::Channel;
@@ -12,27 +12,27 @@ use warnings;
 use strict;
 use parent qw(EventedObject IRC::Functions::Channel);
 
+use Scalar::Util 'weaken';
+
 # CLASS METHODS
 
 sub new {
     my ($class, $irc, $name) = @_;
 
     # create a channel object
-    bless my $channel = {
+    $irc->{channels}->{lc $name} = bless my $channel = {
         name   => $name,
-        users  => [],
-        modes  => {},
-        events => {},
-        status => {}
+        users  => []
     };
 
-    $channel->{irc} = $irc; # creates a looping reference XXX
-    $irc->{channels}->{lc $name} = $channel;
+    # reference weakly to the IRC object.
+    $channel->{irc} = $irc;
+    weaken($channel->{irc});
 
     # fire new channel event
     $irc->fire_event(new_channel => $channel);
 
-    return $channel
+    return $channel;
 }
 
 # lookup by channel name

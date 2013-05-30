@@ -3,7 +3,7 @@
 # ntirc: an insanely flexible IRC client.          |
 # foxy: an insanely flexible IRC bot.              |
 # Copyright (c) 2011, the NoTrollPlzNet developers |
-# Copyright (c) 2012, Mitchell Cooper              |
+# Copyright (c) 2012-12, Mitchell Cooper           |
 # User.pm: the user object class.                  |
 #---------------------------------------------------
 package IRC::User;
@@ -11,8 +11,9 @@ package IRC::User;
 use warnings;
 use strict;
 use parent qw(EventedObject IRC::Functions::User);
+use 5.010;
 
-our $id = 'a';
+use Scalar::Util 'weaken';
 
 #####################
 ### CLASS METHODS ###
@@ -20,21 +21,24 @@ our $id = 'a';
 
 sub new {
     my ($class, $irc, $nick) = @_;
+    $nick ||= 'libirc';
+    state $c = 'a';
 
     # create a new user object
-    bless my $user = {
+    $irc->{users}->{lc $nick} = bless my $user = {
         nick   => $nick,
         events => {},
-        id     => $id++
+        id     => $c++
     }, $class;
 
-    $user->{irc}              = $irc; # creates a looping reference XXX
-    $irc->{users}->{lc $nick} = $user;
+    # reference weakly to the IRC object.
+    $user->{irc} = $irc;
+    weaken($user->{irc});
 
     # fire new user event
     $irc->fire_event(new_user => $user);
 
-    return $user
+    return $user;
 }
 
 # parses a :nick!ident@host

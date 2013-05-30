@@ -20,24 +20,16 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '0.4';
+our $VERSION = '0.5';
 
 # create a new IRC instance
 sub new {
     my ($class, %opts) = @_;
 
     bless my $irc = {}, $class;
-    $irc->configure($opts{nick});
+    $irc->{me} = IRC::User->new($irc, $opts{nick});
 
-    return $irc
-}
-
-sub configure {
-    my ($self, $nick) = @_;
-
-    # XXX users will probably make a reference chain
-    # $irc->{users}->[0]->{irc}->{users} and so on
-    $self->{me}       = IRC::User->new($self, $nick);
+    return $irc;
 }
 
 # parse a raw piece of IRC data
@@ -66,13 +58,8 @@ sub parse_data {
 
     # fire the raw_* event (several of which fire more events from there on)
     $irc->fire_event("raw_$command", $data, @args);
-    $irc->fire_event('raw', $data, @args); # for anything
+    $irc->fire_event(raw => $data, @args); # for anything
 
-}
-
-# shortcut to the 'send' event
-sub send {
-    shift->fire_event(send => @_);
 }
 
 # return a channel from its name

@@ -30,10 +30,11 @@ my %handlers = (
 # applies each handler to an IRC instance
 sub apply_handlers {
     my $irc = shift;
+    
     $irc->register_event(
-        $_ => $handlers{$_},
-        name => "libirc.$_",
-        priority => 100,    # DISCUSS
+        $_               => $handlers{$_},
+        name             => "libirc.$_",
+        priority         => 100,    # DISCUSS
         with_evented_obj => 1
     ) foreach keys %handlers;
     
@@ -101,7 +102,6 @@ sub handle_isupport {
                     $current--
                 }
 
-                die 'wtf..'.$current if $current != 0;
                 $final{$current} = '@';
                 $current--; # for the @
 
