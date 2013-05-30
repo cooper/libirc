@@ -25,7 +25,7 @@ sub new {
     state $c = 'a';
 
     # create a new user object
-    $irc->{users}->{lc $nick} = bless my $user = {
+    bless my $user = {
         nick   => $nick,
         events => {},
         id     => $c++

@@ -66,6 +66,12 @@ sub has_user {
 sub add_user {
     my ($channel, $user) = @_;
     return if $channel->has_user($user);
+    
+    # store the user if we haven't already.
+    if (!$channel->{irc}{users}{ lc $user->{nick} }) {
+        $channel->{irc}{users}{lc $user->{nick} } = $user;
+    }
+    
     push @{$channel->{users}}, $user;
     $channel->fire_event(user_joined => $user);
 }
@@ -75,7 +81,16 @@ sub remove_user {
     my ($channel, $user) = @_;
     return unless $channel->has_user($user);
     $channel->fire_event(user_remove => $user); # remove, not part, because it might be a quit or something
-    @{$channel->{users}} = grep { $_ != $user } @{$channel->{users}}
+    @{$channel->{users}} = grep { $_ != $user } @{$channel->{users}};
+    
+    # if this user has no more channels,
+    # TODO: check if the user is being watched/kept track of.
+    my @channels = $user->channels;
+    if (!scalar @channels) {
+        delete $channel->{irc}{users}{lc $user->{nick} };
+    }
+    
+    return 1;
 }
 
 # change the channel topic

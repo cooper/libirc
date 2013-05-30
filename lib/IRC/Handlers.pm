@@ -193,13 +193,14 @@ sub handle_privmsg {
     # find the target
     $target = $irc->channel_from_name($target) ||
               $irc->user_from_nick($target)    ||
-              do { if ($target =~ m/^[\Q$$irc{ircd}{support}{chantypes}\E]/) {
-                       $irc->new_channel_from_name($target);
-                   }
-                   else {
-                       $irc->new_user_from_nick($target);
-                   }
-              };
+    do {
+        if ($target =~ m/^[\Q$$irc{ircd}{support}{chantypes}\E]/) {
+            $irc->new_channel_from_name($target);
+        }
+        else {
+            $irc->new_user_from_nick($target);
+        }
+    };
 
     # grab message
     my $msg = IRC::Utils::col((split /\s+/, $data, 4)[3]);

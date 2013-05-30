@@ -21,7 +21,7 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '0.7';
+our $VERSION = '0.8';
 
 # create a new IRC instance
 sub new {
