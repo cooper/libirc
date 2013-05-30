@@ -29,8 +29,11 @@ sub new {
     $channel->{irc} = $irc;
     weaken($channel->{irc});
 
+    # make the IRC object a listener.
+    $channel->add_listener($channel, 'channel');
+
     # fire new channel event
-    $irc->fire_event(new_channel => $channel);
+    $channel->fire_event(new => $channel);
 
     return $channel;
 }

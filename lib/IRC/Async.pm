@@ -49,8 +49,6 @@ sub _init {
     my $self = shift;
     $self->SUPER::_init(@_);
    
-    say '_init got called by ', (caller)[0];
-   
     # data send callback.
     $self->on(send => sub {
         my ($event, $data) = @_;
@@ -65,8 +63,6 @@ sub on_read_line;
 
 sub configure {
     my ($self, %opts) = @_;
-    
-    say 'got called by ', (caller)[0];
     
     # libirc configure.
     $self->IRC::configure(%opts);

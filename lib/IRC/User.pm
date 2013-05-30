@@ -34,9 +34,12 @@ sub new {
     # reference weakly to the IRC object.
     $user->{irc} = $irc;
     weaken($user->{irc});
+    
+    # make the IRC object a listener.
+    $user->add_listener($irc, 'user');
 
     # fire new user event
-    $irc->fire_event(new_user => $user);
+    $user->fire_event(new => $user);
 
     return $user;
 }
