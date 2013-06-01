@@ -11,6 +11,13 @@ package IRC::Channel;
 use warnings;
 use strict;
 use parent qw(EventedObject IRC::Functions::Channel);
+use overload
+    '""'     => sub { shift->{id} },                    # string context  = ID
+    '0+'     => sub { shift },                          # numeric context = memory address 
+    'bool'   => sub { 1 },                              # boolean context = true
+    '${}'    => sub { \shift->{name} },                 # scalar deref    = name
+    '@{}'    => sub { [ values %{shift->{users}} ] },   # array deref     = users
+    fallback => 1;
 
 use Scalar::Util 'weaken';
 
@@ -18,11 +25,12 @@ use Scalar::Util 'weaken';
 
 sub new {
     my ($class, $irc, $name) = @_;
-
+    
     # create a channel object
     $irc->{channels}->{lc $name} = bless my $channel = {
         name   => $name,
-        users  => []
+        users  => {},
+        id     => lc $name
     };
 
     # reference weakly to the IRC object.
@@ -40,17 +48,17 @@ sub new {
 
 # lookup by channel name
 sub from_name {
-    my ($irc, $name) = (shift, lc shift);
-    $name =~ s/^://;
-    return $irc->{channels}->{$name}
+    my ($irc, $lcname) = (shift, lc shift);
+    $lcname =~ s/^://;
+    return $irc->{channels}->{$lcname}
 }
 
 # lookup by channel name
 # or create a new channel if it doesn't exist
 sub new_from_name {
-    my ($package, $irc, $name) = (shift, shift, lc shift);
+    my ($package, $irc, $name) = @_;
     $name =~ s/^://;
-    exists $irc->{channels}->{$name} ? $irc->{channels}->{$name} : $package->new($irc, $name)
+    exists $irc->{channels}->{lc $name} ? $irc->{channels}->{lc $name} : $package->new($irc, $name);
 }
 
 # INSTANCE METHODS
@@ -58,8 +66,7 @@ sub new_from_name {
 # user is in channel?
 sub has_user {
     my ($channel, $user) = @_;
-    return 1 if grep { $_ == $user } @{$channel->{users}};
-    return
+    return exists $channel->{users}{$user->id};
 }
 
 # add a user to a channel
@@ -67,12 +74,14 @@ sub add_user {
     my ($channel, $user) = @_;
     return if $channel->has_user($user);
     
-    # store the user if we haven't already.
-    if (!$channel->{irc}{users}{ lc $user->{nick} }) {
-        $channel->{irc}{users}{lc $user->{nick} } = $user;
-    }
+    # add user to channel.
+    $channel->{users}{$user->id} = $user;
     
-    push @{$channel->{users}}, $user;
+    # add channel to user.
+    # hold a weak reference to the channel.
+    $user->{channels}{$channel->id} = $channel;
+    weaken($user->{channels}{$channel->id});
+    
     $channel->fire_event(user_joined => $user);
 }
 
@@ -80,14 +89,17 @@ sub add_user {
 sub remove_user {
     my ($channel, $user) = @_;
     return unless $channel->has_user($user);
-    $channel->fire_event(user_remove => $user); # remove, not part, because it might be a quit or something
-    @{$channel->{users}} = grep { $_ != $user } @{$channel->{users}};
+    
+    $channel->fire_event(user_remove => $user);
+    
+    delete $channel->{users}{$user->id};
+    delete $user->{channels}{$channel->id};
     
     # if this user has no more channels,
     # TODO: check if the user is being watched/kept track of.
     my @channels = $user->channels;
     if (!scalar @channels) {
-        delete $channel->{irc}{users}{lc $user->{nick} };
+        delete $channel->{irc}{users}{$user->nick};
     }
     
     return 1;
@@ -105,7 +117,7 @@ sub set_topic {
         topic  => $topic,
         setter => $setter,
         time   => $time
-    }
+    };
 }
 
 # set a user's channel status
@@ -142,5 +154,12 @@ sub user_is_status {
     }
     return
 }
+
+# returns an array of users in the channel.
+sub users {
+    return values %{ shift->{users} };
+}
+
+sub id { shift->{id} }
 
 1

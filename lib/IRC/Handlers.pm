@@ -206,8 +206,10 @@ sub handle_privmsg {
     my $msg = IRC::Utils::col((split /\s+/, $data, 4)[3]);
 
     # fire events
-    $irc->fire_event(privmsg    => $user, $target, $msg);
-    $target->fire_event(privmsg => $user, $msg);
+    EventedObject::fire_events_together(
+        [ $irc,     privmsg => $user, $target, $msg ],
+        [ $target,  privmsg => $user, $msg          ]
+    );
 
 }
 
@@ -233,8 +235,12 @@ sub handle_join {
     {
         $user->set_account($args[3]) if $args[3] ne '*'; # Set account name (* = not logged in)
     }
-    $user->fire_event(joined_channel => $channel);
-    $irc->fire_event(user_joined_channel => $user, $channel);
+    
+    EventedObject::fire_events_together(
+        [ $user,    joined_channel => $channel ],
+        [ $channel, user_joined    => $user    ]
+    );
+    
 }
 
 # user parts a channel
@@ -243,9 +249,12 @@ sub handle_part {
     my $user    = $irc->new_user_from_string($args[0]);
     my $channel = $irc->new_channel_from_name($args[2]);
     $channel->remove_user($user);
-    $channel->fire_event(user_parted => $user);
-    $user->fire_event(parted_channel => $channel);
-    $irc->fire_event(user_parted_channel => $user, $channel);
+    
+    EventedObject::fire_events_together(
+        [ $channel, user_parted    => $user    ],
+        [ $user,    parted_channel => $channel ]
+    );
+
 }
 
 # RPL_TOPIC
@@ -347,7 +356,7 @@ sub handle_quit {
     delete $irc->{users}->{lc $user->{nick}};
 
     $user->fire_event(quit => $reason);
-    $irc->fire_event(user_quit => $user, $reason);
+
 }
 
 # Handle CAP
@@ -373,8 +382,11 @@ sub handle_cap {
                 else
                 {
                     $irc->{active_capab}->{$_} = 1;
-                    $irc->fire_event(cap_ack => $_);
-                    $irc->fire_event("cap_ack_".$_);
+                    EventedObject::fire_events_together(
+                        [ $irc, cap_ack => $_ ],
+                        [ $irc, "cap_ack_$_ " ]
+                    );
+                    
                 }
             }
         }

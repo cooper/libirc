@@ -13,6 +13,14 @@ use strict;
 use parent qw(EventedObject IRC::Functions::User);
 use 5.010;
 
+use overload
+    '""'     => sub { shift->{id} },            # string context  = ID
+    '0+'     => sub { shift },                  # numeric context = memory address 
+    'bool'   => sub { 1 },                      # boolean context = true
+    '${}'    => sub { \shift->{nick} },         # scalar deref    = nickname
+    '~~'     => sub { $_[1]->has_user($_[0]) }, # smart match     = user in channel
+    fallback => 1;
+
 use Scalar::Util 'weaken';
 
 #####################
@@ -22,13 +30,13 @@ use Scalar::Util 'weaken';
 sub new {
     my ($class, $irc, $nick) = @_;
     $nick ||= 'libirc';
-    state $c = 'a';
 
     # create a new user object
-    bless my $user = {
-        nick   => $nick,
-        events => {},
-        id     => $c++
+    $irc->{users}{lc $nick} = bless my $user = {
+        nick     => $nick,
+        events   => {},
+        id       => $irc->_next_user_id,
+        channels => {}
     }, $class;
 
     # reference weakly to the IRC object.
@@ -131,11 +139,7 @@ sub set_nick {
 
 # returns a list of channels the user is on
 sub channels {
-    my ($user, @channels) = shift;
-    foreach my $channel (values %{$user->{irc}->{channels}}) {
-        push @channels, $channel if $channel->has_user($user)
-    }
-    return @channels
+    return values %{ shift->{channels} };
 }
 
 # in a common channel with..
@@ -152,5 +156,7 @@ sub set_account {
     my ($user, $account) = @_;
     $user->{account} = $account;
 }
+
+sub id { shift->{id} }
 
 1

@@ -9,6 +9,8 @@ package IRC;
 
 use warnings;
 use strict;
+use utf8;
+use 5.010;
 use parent qw(EventedObject IRC::Functions::IRC);
 
 use EventedObject;
@@ -21,7 +23,7 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '0.8';
+our $VERSION = '0.9';
 
 # create a new IRC instance
 sub new {
@@ -36,7 +38,8 @@ sub new {
 # configure the IRC object.
 sub configure {
     my ($irc, %opts) = @_;
-
+    state $c = 0;
+    
     # create own user object.
     $irc->{me} ||= IRC::User->new($irc, $opts{nick});
 
@@ -44,6 +47,8 @@ sub configure {
     if (!$irc->{_applied_handlers}) {
         $irc->IRC::Handlers::apply_handlers();
         $irc->{_applied_handlers} = 1;
+        
+        $irc->{id} = $c++;
     }
 
     # Do we need SASL?
@@ -197,5 +202,12 @@ sub cap_enabled {
     my ($irc, $cap) = @_;
     return $irc->{active_capab}->{lc $cap};
 }
+
+sub _next_user_id {
+    state $c = 'a';
+    return shift->{id}.$c++;
+}
+
+sub id { shift->{id} }
 
 1

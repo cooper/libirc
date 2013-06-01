@@ -41,7 +41,7 @@ use 5.010;
 sub new {
     my ($class, %opts) = @_;
     my $self = $class->SUPER::new(%opts);
-
+    $self->IRC::configure(%opts);
     return $self;
 }
 
@@ -63,9 +63,6 @@ sub on_read_line;
 
 sub configure {
     my ($self, %opts) = @_;
-    
-    # libirc configure.
-    $self->IRC::configure(%opts);
     
     # if ssl, use IO::Socket::SSL.
     if ($opts{ssl}) {
@@ -97,7 +94,7 @@ sub connect {
         service          => $opts{port} || $self->{temp_port} || 6667,
         on_resolve_error => $on_error,
         on_connect_error => $on_error,
-        on_connected     => sub { $self->login }
+        on_connected     => \&login
     );
     
 }
