@@ -11,6 +11,8 @@ package IRC::Channel;
 use warnings;
 use strict;
 use parent qw(EventedObject IRC::Functions::Channel);
+use utf8;
+use 5.010;
 use overload
     '""'     => sub { shift->{id} },                    # string context  = ID
     '0+'     => sub { shift },                          # numeric context = memory address 
@@ -66,7 +68,7 @@ sub new_from_name {
 # user is in channel?
 sub has_user {
     my ($channel, $user) = @_;
-    return exists $channel->{users}{$user->id};
+    return exists $channel->{users}{$user};
 }
 
 # add a user to a channel
@@ -74,15 +76,20 @@ sub add_user {
     my ($channel, $user) = @_;
     return if $channel->has_user($user);
     
-    # add user to channel.
-    $channel->{users}{$user->id} = $user;
+    # add user to channel weakly.
+    $channel->{users}{$user} = $user;
+    weaken($channel->{users}{$user});
     
     # add channel to user.
-    # hold a weak reference to the channel.
-    $user->{channels}{$channel->id} = $channel;
-    weaken($user->{channels}{$channel->id});
+    $user->{channels}{$channel} = $channel;
     
-    $channel->fire_event(user_joined => $user);
+    # make the user permanent.
+    if (!$user->{permanent}) {
+        $channel->{irc}->make_permanent($user);
+    }
+    
+    $channel->fire_event(user_add => $user);
+    
 }
 
 # remove user from channel
@@ -92,14 +99,13 @@ sub remove_user {
     
     $channel->fire_event(user_remove => $user);
     
-    delete $channel->{users}{$user->id};
-    delete $user->{channels}{$channel->id};
+    delete $channel->{users}{$user};
+    delete $user->{channels}{$channel};
     
-    # if this user has no more channels,
+    # if this user has no more channels, weaken it.
     # TODO: check if the user is being watched/kept track of.
-    my @channels = $user->channels;
-    if (!scalar @channels) {
-        delete $channel->{irc}{users}{$user->nick};
+    if (!scalar $user->channels) {
+        $channel->{irc}->make_semi_permanent($user);
     }
     
     return 1;
@@ -121,38 +127,36 @@ sub set_topic {
 }
 
 # set a user's channel status
-sub set_status {
+sub add_status {
     my ($channel, $user, $level) = @_;
+    return if $channel->user_is_status($user, $level);
 
-    # add the user to the status array
-    push @{$channel->{status}->{$level}}, $user;
+    # weakly add the user to the status array.
+    my $level_users = $channel->{status}{$level};
+    push @$level_users, $user;
+    weaken($level_users->[$#$level_users]);
 
-    # fire event
+    # add the level to the user's status array.
+    my $levels = ($user->{channel_status}{$channel} ||= []);
+    push @$levels, $level;
+    
     $channel->fire_event(set_user_status => $user, $level);
 }
 
 # get status(es) of a user
 sub user_status {
     my ($channel, $user) = @_;
-    my @status;
-    foreach my $level (keys %{$channel->{status}}) {
-        foreach my $this_user (@{$channel->{status}->{$level}}) {
-            push @status, $level if $user == $this_user
-        }
-    }
-    return @status
+    my @a = @{ $user->{channel_status}{$channel} || [] };
+    return wantarray ? @a : $a[0];
 }
 
 # user is status or higher?
 sub user_is_status {
-    my ($channel, $user, $need) = @_;
-    foreach my $level (keys %{$channel->{status}}) {
-        foreach my $this_user (@{$channel->{status}->{$level}}) {
-            next unless $level >= $need;
-            return 1 if $user == $this_user;
-        }
+    my ($channel, $user, $check) = @_;
+    foreach my $level ($channel->user_status($user)) {
+        return 1 if $level >= $check;
     }
-    return
+    return;
 }
 
 # returns an array of users in the channel.

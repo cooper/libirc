@@ -15,6 +15,8 @@ use parent qw(EventedObject IRC::Functions::IRC);
 
 use EventedObject;
 
+use Scalar::Util 'weaken';
+
 use IRC::User;
 use IRC::Channel;
 use IRC::Handlers;
@@ -23,7 +25,7 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '0.9';
+our $VERSION = '1.0';
 
 # create a new IRC instance
 sub new {
@@ -40,9 +42,6 @@ sub configure {
     my ($irc, %opts) = @_;
     state $c = 0;
     
-    # create own user object.
-    $irc->{me} ||= IRC::User->new($irc, $opts{nick});
-
     # apply default handlers.
     if (!$irc->{_applied_handlers}) {
         $irc->IRC::Handlers::apply_handlers();
@@ -50,6 +49,9 @@ sub configure {
         
         $irc->{id} = $c++;
     }
+
+    # create own user object.
+    $irc->{me} ||= IRC::User->new($irc, $opts{nick});
 
     # Do we need SASL?
     if ($opts{sasl_user} && defined $opts{sasl_pass} && !$INC{'MIME/Base64.pm'}) {
@@ -62,7 +64,7 @@ sub configure {
 sub parse_data {
     my ($irc, $data) = @_;
 
-    $data =~ s/(\0|\r)//g; # remove unwanted characters
+    $data =~ s/\0|\r//g; # remove unwanted characters
 
     # parse one line at a time
     if ($data =~ m/\n/) {
@@ -92,11 +94,11 @@ sub parse_data {
 sub login {
     my $irc = shift;
     
-    my ($nick, $user, $real, $pass) = (
-        $irc->{temp_nick}, 
-        $irc->{temp_user},
-        $irc->{temp_real},
-        $irc->{temp_pass}
+    my ($nick, $ident, $real, $pass) = (
+        $irc->{nick}, 
+        $irc->{user},
+        $irc->{real},
+        $irc->{pass}
     );
     
     # request capabilities.
@@ -105,18 +107,18 @@ sub login {
     # send login information.
     $irc->send("PASS $pass") if defined $pass && length $pass;
     $irc->send("NICK $nick");
-    $irc->send("USER $user * * :$real");
+    $irc->send("USER $ident * * :$real");
     
     # SASL authentication.
-    if ($irc->{temp_sasl_user} && defined $irc->{temp_sasl_pass}) {
+    if ($irc->{sasl_user} && defined $irc->{sasl_pass}) {
         $irc->send('CAP REQ sasl');
         $irc->on(cap_ack_sasl => sub {
             $irc->send('AUTHENTICATE PLAIN');
             
             my $str = MIME::Base64::encode_base64(join("\0",
-                $irc->{temp_sasl_user},
-                $irc->{temp_sasl_user},
-                $irc->{temp_sasl_pass}
+                $irc->{sasl_user},
+                $irc->{sasl_user},
+                $irc->{sasl_pass}
             ), '');
             
             if (!length $str) {
@@ -209,5 +211,23 @@ sub _next_user_id {
 }
 
 sub id { shift->{id} }
+
+# make a user permanent.
+sub make_permanent {
+    my ($irc, $user) = @_;
+    delete $irc->{users}{$user};
+    $irc->{users}{$user} = $user;
+    $user->{permanent} = 1;
+    return 1;
+}
+
+# make a user semi-permanent.
+sub make_semi_permanent {
+    my ($irc, $user) = @_;
+    return if $user == $irc->{me}; # I am always permanent.
+    weaken($irc->{users}{$user});
+    delete $user->{permanent};
+    return 1;
+}
 
 1

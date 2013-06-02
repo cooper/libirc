@@ -78,7 +78,7 @@ sub configure {
     
     foreach my $key (qw|host port nick user real pass sasl_user sasl_pass|) {
         defined(my $val = delete $opts{$key}) or next;
-        $self->{"temp_$key"} = $val;
+        $self->{$key} = $val;
     }
     
     $self->SUPER::configure(%opts);
@@ -90,8 +90,8 @@ sub connect {
     my $on_error   = $opts{on_error} || sub { die }; # lazy
 
     $self->SUPER::connect(
-        host             => $opts{host} || $self->{temp_host},
-        service          => $opts{port} || $self->{temp_port} || 6667,
+        host             => $opts{host} || $self->{host},
+        service          => $opts{port} || $self->{port} || 6667,
         on_resolve_error => $on_error,
         on_connect_error => $on_error,
         on_connected     => \&login

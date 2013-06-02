@@ -68,7 +68,7 @@ sub handle_isupport {
         # fire an event saying that we got the support string
         # for example, to update the network name when NETWORK is received.
         $irc->fire_event('isupport_got_'.lc($support), $val);
-        $irc->{ircd}->{support}->{lc $support} = $val;
+        $irc->{ircd}{support}{lc $support} = $val;
 
       given (uc $support) {
 
@@ -78,7 +78,7 @@ sub handle_isupport {
         }
 
         when ('PREFIX') {
-            # prefixes are stored in $irc->{prefix}->{<status level>}
+            # prefixes are stored in $irc->{ircd}{prefix}{<status level>}
             # and their value is an array reference of [symbol, mode letter]
 
             # it's hard to support so many different prefixes
@@ -97,10 +97,10 @@ sub handle_isupport {
             my ($modes, $prefixes, %final) = ($1, $2);
 
             # does it have an @?
-            if ($prefixes =~ m/(.+)\@(.+)/) {
+            if ($prefixes =~ m/(.*)\@(.*)/) {
                 my $current = length $1; # the number of prefixes before @ is the top level
-                my @before  = split //, $1;
-                my @after   = split //, $2;
+                my @before  = $1 ? split //, $1 : ();
+                my @after   = $2 ? split //, $2 : ();
 
                 # before the @
                 foreach my $symbol (@before) {
@@ -116,6 +116,7 @@ sub handle_isupport {
                     $final{$current} = $symbol;
                     $current--
                 }
+                
             }
 
             # no @, so just start from the top
@@ -130,7 +131,7 @@ sub handle_isupport {
             # store
             my ($i, @modes) = (0, split(//, $modes));
             foreach my $level (reverse sort { $a <=> $b } keys %final) {
-                $irc->{prefix}->{$level} = [$final{$level}, $modes[$i]];
+                $irc->{ircd}{prefix}{$level} = [ $final{$level}, $modes[$i] ];
                 $i++
             }
 
@@ -141,7 +142,7 @@ sub handle_isupport {
 
         # CHANMODES tells us what modes are which.
         # we need this so we know which modes to expect to have parameters.
-        # modes are stored in $irc->{chmode}->{<letter>} = { type => <type> }
+        # modes are stored in $irc->{chmode}{<letter>} = { type => <type> }
         when ('CHANMODES') {
 
             # CHANMODES=eIb,k,fl,ACDEFGJKLMNOPQSTcgimnpstz
@@ -161,7 +162,7 @@ sub handle_isupport {
                 }
 
                 # store it
-                $irc->{chmode}->{$mode}->{type} = $type
+                $irc->{chmode}{$mode}{type} = $type
             }
 
         }
@@ -280,7 +281,7 @@ sub handle_got_topic_time {
     $channel->set_topic(delete $channel->{temp_topic}, $setter, $settime);
 
     # fire event
-    $irc->fire_event(channel_got_topic => $channel->{topic}->{topic}, $setter, $settime);
+    $irc->fire_event(channel_got_topic => $channel->{topic}{topic}, $setter, $settime);
 }
 
 # RPL_NAMREPLY
@@ -293,8 +294,8 @@ sub handle_namesreply {
 
     # get a hash of prefixes
     my %prefixes;
-    foreach my $level (keys %{$irc->{prefix}}) {
-        $prefixes{$irc->{prefix}->{$level}->[0]} = $level
+    foreach my $level (keys %{ $irc->{ircd}{prefix} }) {
+        $prefixes{ $irc->{ircd}{prefix}{$level}[0] } = $level
     }
 
     NICK: foreach my $nick (@names) {
@@ -327,7 +328,7 @@ sub handle_namesreply {
 
         # apply the levels
         foreach my $level (@levels) {
-            $channel->set_status($user, $level);
+            $channel->add_status($user, $level);
             $irc->fire_event(channel_set_user_status => $user, $level);
         }
 
@@ -352,8 +353,10 @@ sub handle_quit {
     }
 
     # remove user from IRC object
+    # TODO: this should not be here. it should be in User.pm.
     delete $user->{irc};
-    delete $irc->{users}->{lc $user->{nick}};
+    delete $irc->{nicks}{ lc $user->{nick} };
+    delete $irc->{users}{$user};
 
     $user->fire_event(quit => $reason);
 
@@ -368,7 +371,7 @@ sub handle_cap {
     {
         when ('LS')
         {
-            $irc->{ircd}->{capab}->{$_} = 1 foreach (split(' ', $params));
+            $irc->{ircd}{capab}{$_} = 1 foreach (split(' ', $params));
         }
         when ('ACK')
         {
@@ -376,12 +379,12 @@ sub handle_cap {
             {
                 if ($_ =~ m/^(-|~|=)(.*)$/)
                 {
-                    delete $irc->{active_capab}->{$2} if $1 eq '-';
+                    delete $irc->{active_capab}{$2} if $1 eq '-';
                     $irc->send("CAP ACK $2") if $1 eq '~'; # XXX rework this logic
                 }
                 else
                 {
-                    $irc->{active_capab}->{$_} = 1;
+                    $irc->{active_capab}{$_} = 1;
                     EventedObject::fire_events_together(
                         [ $irc, cap_ack => $_ ],
                         [ $irc, "cap_ack_$_ " ]
