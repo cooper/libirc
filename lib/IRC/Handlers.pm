@@ -385,11 +385,8 @@ sub handle_cap {
                 else
                 {
                     $irc->{active_capab}{$_} = 1;
-                    EventedObject::fire_events_together(
-                        [ $irc, cap_ack => $_ ],
-                        [ $irc, "cap_ack_$_"  ]
-                    );
-                    
+                    $irc->fire_event(cap_ack => $_);
+                    $irc->fire_event("cap_ack_$_");
                 }
             }
         }
