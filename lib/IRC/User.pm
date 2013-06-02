@@ -151,4 +151,12 @@ sub set_account {
 
 sub id { shift->{id} }
 
+# attempt to dispose of the stored user ID.
+sub DESTROY {
+    my $user = shift;
+    if (defined $user && defined $user->{nick} && defined $user->{irc}) {
+        delete $user->{irc}{nicks}{ lc $user->{nick} };
+    }
+}
+
 1
