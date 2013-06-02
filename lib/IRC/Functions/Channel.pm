@@ -41,4 +41,10 @@ sub send_invite {
     $channel->{irc}->send("INVITE $$user $$channel");
 }
 
+sub send_part {
+    my ($channel, $reason) = @_;
+    $channel->fire_event(send_part => $reason);
+    $channel->{irc}->send("PART ".$$channel.(defined $reason ? " :$reason" : q..));
+}
+
 1
