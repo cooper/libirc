@@ -55,11 +55,16 @@ sub add_user {
     return if $channel->has_user($user);
     
     # add user to channel.
-    $channel->{users}{$user}    = $user;    # XXX: should these be weak references?
-    $user->{channels}{$channel} = $channel;
+    weaken($channel->{users}{$user}    = $user);
+    weaken($user->{channels}{$channel} = $channel);
    
     # hold on to the user.
-    $channel->pool->retain_user($user);
+    $channel->pool->retain($user);
+    
+    # if the user is me, hold on to the channel.
+    if ($user == $channel->irc->{me}) {
+        $channel->pool->retain($channel);
+    }
     
     $channel->fire_event(user_add => $user);
     
@@ -68,7 +73,7 @@ sub add_user {
 # remove user from channel
 sub remove_user {
     my ($channel, $user) = @_;
-    return unless $channel->has_user($user);
+    return unless $channel->has_user($user);print "CALLER: @{[ grep { defined} caller 1]}\n";
     
     EventedObject::fire_events_together(
         [ $channel, user_remove     =>  $user    ],
@@ -79,7 +84,12 @@ sub remove_user {
     delete $user->{channels}{$channel};
     
     # let go of the user.
-    $channel->pool->release_user($user); 
+    $channel->pool->release($user); 
+    
+    # if the user is me, let go of the channel.
+    if ($user == $channel->irc->{me}) {
+        $channel->pool->release($channel);
+    }
     
     return 1;
 }
@@ -137,8 +147,9 @@ sub users {
     return values %{ shift->{users} };
 }
 
-sub id   { shift->{id}   }
-sub pool { shift->{pool} }
+sub id   { shift->{id}      }
+sub pool { shift->{pool}    }
+sub irc  { shift->pool->irc }
 
 # smart matching
 sub _match {

@@ -250,8 +250,9 @@ sub handle_part {
     my ($irc, $event, $data, @args) = @_;
     my $user    = $irc->new_user_from_string($args[0]);
     my $channel = $irc->new_channel_from_name($args[2]);
-    $channel->remove_user($user);
     
+    $channel->remove_user($user);
+
     EventedObject::fire_events_together(
         [ $channel, user_parted    => $user    ],
         [ $user,    parted_channel => $channel ]

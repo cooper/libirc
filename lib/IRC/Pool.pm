@@ -51,9 +51,8 @@ sub add_user {
     $pool->{ref_count}{$id} = 0;
     weaken($pool->{users}{$id});
     
-    # weakly reference to the pool.
+    # reference to the pool.
     $user->{pool} = $pool;
-    weaken($user->{pool});
     
     # weakly reference to the IRC object.
     # this is very silly, but it still here for compatibility.
@@ -87,32 +86,44 @@ sub remove_user {
     return 1;
 }
 
-# increase user reference count.
-sub retain_user {
-    my ($pool, $user) = @_;
-    my $refcount = ++$pool->{ref_count}{$user};
+# increase reference count.
+sub retain {
+    my ($pool, $obj) = @_;
+    my $refcount = ++$pool->{ref_count}{$obj};
+    
+    return $refcount if $refcount != 1;
     
     # refcount has been incremented to one.
     # store the user semi-permanently.
-    if ($refcount == 1) {
-        delete $pool->{users}{$user};
-        $pool->{users}{$user} = $user;
-    }
+
+    my $type = 'objects';
+    $type = 'users'    if $obj->isa('IRC::User');
+    $type = 'channels' if $obj->isa('IRC::Channel');
+
+    # re-reference.
+    delete $pool->{$type}{$obj};
+    $pool->{$type}{$obj} = $obj;
     
-    return $refcount;
+    return 1;
 }
 
-# decrease user reference count.
-sub release_user {
-    my ($pool, $user) = @_;
-    my $refcount = --$pool->{ref_count}{$user};
+# decrease reference count.
+sub release {
+    my ($pool, $obj) = @_;
+    my $refcount = --$pool->{ref_count}{$obj};
     
-    # refcount = 0; dispose of the user.
-    if (!$refcount) {
-        $pool->remove_user($user);
+    return $refcount if $refcount;
+
+    # users.
+    $pool->remove_user($obj) if $obj->isa('IRC::User');
+    
+    # channels.
+    if ($obj->isa('IRC::Channel')) {
+        $obj->remove_user($_) foreach $obj->users;
+        $pool->remove_channel($obj);
     }
-    
-    return $refcount;
+
+    return 0;
 }
 
 # fetch next available user ID.
@@ -139,12 +150,13 @@ sub add_channel {
 
     my $id = $channel->{id} = $pool->irc->id.lc($channel->{name});
 
-    # reference to the channel.
+    # weakly reference to the channel.
+    # this will be strengthened when the channel is retained.
     $pool->{channels}{$id} = $channel;
+    weaken($pool->{channels}{$id});
     
-    # weakly reference to the pool.
+    # reference to the pool.
     $channel->{pool} = $pool;
-    weaken($channel->{pool});
     
     # weakly reference to the IRC object.
     # this is very silly, but it still here for compatibility.

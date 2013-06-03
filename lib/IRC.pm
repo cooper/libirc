@@ -43,7 +43,7 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '1.4';
+our $VERSION = '1.6';
 
 # create a new IRC instance
 sub new {
@@ -72,7 +72,7 @@ sub configure {
     $irc->{pool} ||= IRC::Pool->new(irc  => $irc);
     $irc->{me}   ||= IRC::User->new(nick => $opts{nick});
     $irc->pool->add_user($irc->{me});
-    $irc->pool->retain_user($irc->{me});
+    $irc->pool->retain($irc->{me});
 
     # Do we need SASL?
     if ($opts{sasl_user} && defined $opts{sasl_pass} && !$INC{'MIME/Base64.pm'}) {
