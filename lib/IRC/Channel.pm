@@ -26,41 +26,18 @@ use Scalar::Util 'weaken';
 # CLASS METHODS
 
 sub new {
-    my ($class, $irc, $name) = @_;
+    my ($class, %opts) = @_;
     
     # create a channel object
-    $irc->{channels}->{lc $name} = bless my $channel = {
-        name   => $name,
-        users  => {},
-        id     => lc $name
+    bless my $channel = {
+        users => {},
+        %opts
     };
 
-    # reference weakly to the IRC object.
-    $channel->{irc} = $irc;
-    weaken($channel->{irc});
-
-    # make the IRC object a listener.
-    $channel->add_listener($channel, 'channel');
-
-    # fire new channel event
-    $channel->fire_event(new => $channel);
+    # assign a temporary identifier.
+    $channel->{id} = '[Channel '.($channel + 0).q(]);
 
     return $channel;
-}
-
-# lookup by channel name
-sub from_name {
-    my ($irc, $lcname) = (shift, lc shift);
-    $lcname =~ s/^://;
-    return $irc->{channels}->{$lcname}
-}
-
-# lookup by channel name
-# or create a new channel if it doesn't exist
-sub new_from_name {
-    my ($package, $irc, $name) = @_;
-    $name =~ s/^://;
-    exists $irc->{channels}->{lc $name} ? $irc->{channels}->{lc $name} : $package->new($irc, $name);
 }
 
 # INSTANCE METHODS
@@ -76,17 +53,12 @@ sub add_user {
     my ($channel, $user) = @_;
     return if $channel->has_user($user);
     
-    # add user to channel weakly.
-    $channel->{users}{$user} = $user;
-    weaken($channel->{users}{$user});
-    
-    # add channel to user.
+    # add user to channel.
+    $channel->{users}{$user}    = $user;    # XXX: should these be weak references?
     $user->{channels}{$channel} = $channel;
-    
-    # make the user permanent.
-    if (!$user->{permanent}) {
-        $channel->{irc}->make_permanent($user);
-    }
+   
+    # hold on to the user.
+    $channel->pool->retain_user($user);
     
     $channel->fire_event(user_add => $user);
     
@@ -97,16 +69,16 @@ sub remove_user {
     my ($channel, $user) = @_;
     return unless $channel->has_user($user);
     
-    $channel->fire_event(user_remove => $user);
+    EventedObject::fire_events_together(
+        [ $channel, user_remove     =>  $user    ],
+        [ $user,    remove_channel  =>  $channel ]
+    );
     
     delete $channel->{users}{$user};
     delete $user->{channels}{$channel};
     
-    # if this user has no more channels, weaken it.
-    # TODO: check if the user is being watched/kept track of.
-    if (!scalar $user->channels) {
-        $channel->{irc}->make_semi_permanent($user);
-    }
+    # let go of the user.
+    $channel->pool->release_user($user); 
     
     return 1;
 }
@@ -164,6 +136,7 @@ sub users {
     return values %{ shift->{users} };
 }
 
-sub id { shift->{id} }
+sub id   { shift->{id}   }
+sub pool { shift->{pool} }
 
 1

@@ -231,6 +231,7 @@ sub handle_join {
     my $user    = $irc->new_user_from_string($args[0]);
     my $channel = $irc->new_channel_from_name($args[2]);
     $channel->add_user($user);
+    
     # If extended-join is enabled, try to get account name
     if ($irc->cap_enabled('extended-join')) 
     {

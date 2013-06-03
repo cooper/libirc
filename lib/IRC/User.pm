@@ -28,84 +28,20 @@ use Scalar::Util 'weaken';
 #####################
 
 sub new {
-    my ($class, $irc, $nick) = @_;
-    $nick ||= 'libirc';
+    my ($class, %opts) = @_;
 
-    # create a new user object
-    my $id = $irc->_next_user_id;
-    
-    $irc->{users}{$id} = bless my $user = {
-        nick     => $nick,
+    # create a new user object   
+    bless my $user = {
         events   => {},
-        id       => $id,
-        channels => {}
+        channels => {},
+        nick     => 'libirc', # default
+        %opts
     }, $class;
-    weaken($irc->{users}{$id});
-    $irc->{nicks}{lc $nick} = $id;
-
-    # reference weakly to the IRC object.
-    $user->{irc} = $irc;
-    weaken($user->{irc});
     
-    # make the IRC object a listener.
-    $user->add_listener($irc, 'user');
-
-    # fire new user event
-    $user->fire_event(new => $user);
+    # assign a temporary identifier.
+    $user->{id} = '[User '.($user + 0).q(]);
 
     return $user;
-}
-
-# parses a :nick!ident@host
-# and finds the user
-sub from_string {
-    my ($irc, $user_string) = @_;
-    $user_string =~ m/^:*(.+)!(.+)\@(.+)/ or return;
-    my ($nick, $ident, $host) = ($1, $2, $3);
-
-    # find the user.
-    my $user = from_nick($irc, $nick);
-    
-    # TODO: host change events.
-
-    return $user;
-}
-
-# parses a :nick!ident@host
-# and creates a new user if it doesn't exist
-# finds it if it does
-sub new_from_string {
-    my ($package, $irc, $user_string) = @_;
-    $user_string =~ m/^:*(.+)!(.+)\@(.+)/ or return;
-    my ($nick, $ident, $host) = ($1, $2, $3);
-    return from_string($irc, $user_string) || do {
-        my $user = $package->new($irc, $nick);
-        # set host
-        # set ident
-        $user
-    };
-}
-
-# find a user by his nick
-sub from_nick {
-    my ($irc, $nick) = @_;
-
-    # find the user.
-    my $user;
-    my $id = $irc->{nicks}{lc $nick};
-    if (defined $id) {
-        $user = $irc->{users}{$id};
-        delete $irc->{nicks}{lc $nick} unless $user;
-    }
-    
-    return $user;
-}
-
-# find a user by his nick
-# or create one if it doesn't exist
-sub new_from_nick {
-    my ($package, $irc, $nick) = @_;
-    return from_nick($irc, $nick) || $package->new($irc, $nick);
 }
 
 ########################
@@ -115,7 +51,7 @@ sub new_from_nick {
 # change the nickname and move the object's location
 sub set_nick {
     my ($user, $newnick) = @_;
-    my $irc = $user->{irc};
+    my $irc = $user->irc;
 
     delete $irc->{nicks}{ lc $user->{nick} };
 
@@ -140,7 +76,7 @@ sub in_common {
     foreach my $channel ($user->channels) {
         return 1 if $channel->has_user($other_user)
     }
-    return
+    return;
 }
 
 # set account name
@@ -149,14 +85,16 @@ sub set_account {
     $user->{account} = $account;
 }
 
-sub id { shift->{id} }
+sub id   { shift->{id}      }
+sub irc  { shift->pool->irc }
+sub pool { shift->{pool}    }
 
-# attempt to dispose of the stored user ID.
 sub DESTROY {
     my $user = shift;
-    if (defined $user && defined $user->{nick} && defined $user->{irc}) {
-        delete $user->{irc}{nicks}{ lc $user->{nick} };
-    }
+
+    # if the user belongs to a pool, remove it.
+    $user->pool->remove_user($user) if $user->pool;
+    
 }
 
 1

@@ -3,20 +3,38 @@
 # ntirc: an insanely flexible IRC client.          |
 # foxy: an insanely flexible IRC bot.              |
 # Copyright (c) 2012, the NoTrollPlzNet developers |
-# Copyright (c) 2012, Mitchell Cooper              |
+# Copyright (c) 2012-13, Mitchell Cooper           |
 #---------------------------------------------------
 package IRC;
+
+# TODO LIST:
+#
+#   [ ] use a consistent structure for storing ircd-related information in an IRC object
+#   [ ] make methods to fetch server capability information from RPL_ISUPPORT
+#   [ ] make preset channel status levels for voice and halfop
+#   [ ] create a class for manging multiple IRC servers
+#   [ ] make users and channels independent of IRC objects with ->add_*, ->remove_*, etc.
+#
 
 use warnings;
 use strict;
 use utf8;
 use 5.010;
 use parent qw(EventedObject IRC::Functions::IRC);
+use overload
+    '""'     => sub { shift->{id} },            # string context  = ID
+    '0+'     => sub { shift },                  # numeric context = memory address 
+    'bool'   => sub { 1 },                      # boolean context = true
+    '${}'    => sub { \shift->{network} },      # scalar deref    = network name
+    #'~~'    TODO: smart match for users and channels.
+    fallback => 1;
+
 
 use EventedObject;
 
 use Scalar::Util 'weaken';
 
+use IRC::Pool;
 use IRC::User;
 use IRC::Channel;
 use IRC::Handlers;
@@ -25,7 +43,7 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '1.1';
+our $VERSION = '1.2';
 
 # create a new IRC instance
 sub new {
@@ -50,8 +68,11 @@ sub configure {
         $irc->{id} = $c++;
     }
 
-    # create own user object.
-    $irc->{me} ||= IRC::User->new($irc, $opts{nick});
+    # create pool and own object.
+    $irc->{pool} ||= IRC::Pool->new(irc  => $irc);
+    $irc->{me}   ||= IRC::User->new(nick => $opts{nick});
+    $irc->pool->add_user($irc->{me});
+    $irc->pool->retain_user($irc->{me});
 
     # Do we need SASL?
     if ($opts{sasl_user} && defined $opts{sasl_pass} && !$INC{'MIME/Base64.pm'}) {
@@ -157,40 +178,62 @@ sub send {
 # return a channel from its name
 sub channel_from_name {
     my ($irc, $name) = @_;
-    IRC::Channel::from_name($irc, $name);
+    return $irc->pool->get_channel($name);
 }
 
 # create a new channel by its name
 # or return the channel if it exists
 sub new_channel_from_name {
     my ($irc, $name) = @_;
-    IRC::Channel->new_from_name($irc, $name);
+    return $irc->pool->get_channel($name)
+    || $irc->pool->add_channel( IRC::Channel->new(
+        pool => $irc->pool,
+        name => $name
+    ) );
 }
 
 # create a new user by his nick
 # or return the user if it exists
 sub new_user_from_nick {
     my ($irc, $nick) = @_;
-    IRC::User->new_from_nick($irc, $nick);
+    return $irc->user_from_nick($nick)
+    || $irc->pool->add_user( IRC::User->new(
+        pool => $irc->pool,
+        nick => $nick
+    ) );
 }
 
 # return a user by his nick
 sub user_from_nick {
     my ($irc, $nick) = @_;
-    IRC::User::from_nick($irc, $nick);
+    return $irc->pool->get_user($nick);
 }
 
 # create a new user by his :nick!ident@host string
 # or return the user if it exists
 sub new_user_from_string {
-    my ($irc, $nick) = @_;
-    IRC::User->new_from_string($irc, $nick);
+    my ($irc, $user_string) = @_;
+    $user_string =~ m/^:*(.+)!(.+)\@(.+)/ or return;
+    my ($nick, $ident, $host) = ($1, $2, $3);
+    return $irc->user_from_string($user_string)
+    || $irc->pool->add_user( IRC::User->new(nick => $nick) );
+        
+    # TODO: host/ident change.
+    
 }
 
 # return a user by his :nick!ident@host string
 sub user_from_string {
-    my ($irc, $nick) = @_;
-    IRC::User::from_string($irc, $nick);
+    my ($irc, $user_string) = @_;
+    $user_string =~ m/^:*(.+)!(.+)\@(.+)/ or return;
+    my ($nick, $ident, $host) = ($1, $2, $3);
+
+    # find the user.
+    my $user = $irc->pool->get_user($nick);
+    
+    # TODO: host/ident change.
+
+    return $user;
 }
 
 # determine if the ircd we're connected to suppots a particular capability.
@@ -205,29 +248,8 @@ sub cap_enabled {
     return $irc->{active_capab}->{lc $cap};
 }
 
-sub _next_user_id {
-    state $c = 'a';
-    return shift->{id}.$c++;
-}
 
-sub id { shift->{id} }
-
-# make a user permanent.
-sub make_permanent {
-    my ($irc, $user) = @_;
-    delete $irc->{users}{$user};
-    $irc->{users}{$user} = $user;
-    $user->{permanent} = 1;
-    return 1;
-}
-
-# make a user semi-permanent.
-sub make_semi_permanent {
-    my ($irc, $user) = @_;
-    return if $user == $irc->{me}; # I am always permanent.
-    weaken($irc->{users}{$user});
-    delete $user->{permanent};
-    return 1;
-}
+sub id   { shift->{id}   }
+sub pool { shift->{pool} }
 
 1
