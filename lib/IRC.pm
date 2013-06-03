@@ -26,7 +26,7 @@ use overload
     '0+'     => sub { shift },                  # numeric context = memory address 
     'bool'   => sub { 1 },                      # boolean context = true
     '${}'    => sub { \shift->{network} },      # scalar deref    = network name
-    #'~~'    TODO: smart match for users and channels.
+    '~~'     => \&_match,                       # smart matching
     fallback => 1;
 
 
@@ -43,7 +43,7 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '1.3';
+our $VERSION = '1.4';
 
 # create a new IRC instance
 sub new {
@@ -246,6 +246,18 @@ sub has_cap {
 sub cap_enabled {
     my ($irc, $cap) = @_;
     return $irc->{active_capab}->{lc $cap};
+}
+
+# smart matching
+sub _match {
+    my ($irc, $other) = @_;
+    
+    # anything that is not blessed is a no no.
+    return unless blessed $other;
+    
+    # anything else, check if it belongs to this IRC object.
+    return $other->{irc} == $irc;
+    
 }
 
 

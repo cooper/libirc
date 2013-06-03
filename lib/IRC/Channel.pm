@@ -19,6 +19,7 @@ use overload
     'bool'   => sub { 1 },                              # boolean context = true
     '${}'    => sub { \shift->{name} },                 # scalar deref    = name
     '@{}'    => sub { [ values %{shift->{users}} ] },   # array deref     = users
+    '~~'     => \&_match,                               # smart match
     fallback => 1;
 
 use Scalar::Util 'weaken';
@@ -138,5 +139,30 @@ sub users {
 
 sub id   { shift->{id}   }
 sub pool { shift->{pool} }
+
+# smart matching
+sub _match {
+    my ($channel, $other) = @_;
+    
+    # anything that is not blessed is a no no.
+    return unless blessed $other;
+    
+    # for channels, I'm not sure what to do yet.
+    if ($other->isa('IRC::Channel')) {
+        return $channel->{irc} == $other->{irc};
+    }
+    
+    # if it's a user, check if the user is in the channel.
+    if ($other->isa('IRC::User')) {
+        return $channel->has_user($other);
+    }
+    
+    # for IRC objects, check if the channel belongs to that server.
+    if ($other->isa('IRC')) {
+        return $other == $channel->{irc};
+    }
+    
+    return;
+}
 
 1
