@@ -43,7 +43,7 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '1.7';
+our $VERSION = '1.8';
 
 # create a new IRC instance
 sub new {
@@ -82,6 +82,8 @@ sub configure {
 }
 
 # parse a raw piece of IRC data
+# this has been replaced by handle_data() and parse_data_new()
+# and remains here temporarily for compatibility only.
 sub parse_data {
     my ($irc, $data) = @_;
 
@@ -109,6 +111,73 @@ sub parse_data {
     $irc->fire_event("raw_$command", $data, @args);
     $irc->fire_event(raw => $data, @args); # for anything
 
+}
+
+# parse a piece of incoming data.
+sub parse_data_new {
+    my ($irc, $data) = @_;    
+    my ($arg_i, $char_i, $got_colon, $last_char, $source, @args) = (0, -1);
+    
+    # separate the arguments.
+    
+    foreach my $char (split //, $data) {
+        $char_i++;
+        
+        # whitespace:
+        # if the last character is not whitespace
+        # and we have not received the colon.
+        if ($char =~ m/\s/ && !$got_colon) { 
+            next if $last_char =~ m/\s/;
+            $arg_i++;
+            $last_char = $char;
+            next;
+        }
+        
+        # colon:
+        # if we haven't already received a colon
+        # and this isn't the first character (that would be a source)
+        # and we're not in the middle of an argument
+        if ($char eq ':' && !$got_colon && $char_i && !length $args[$arg_i]) {
+            $got_colon = 1;
+            $last_char = $char;
+            next;
+        }
+        
+        # any other character.
+        defined $args[$arg_i] or $args[$arg_i] = '';
+        $args[$arg_i] .= $char;
+        
+        $last_char = $char;
+    }
+    
+    # determine the source.
+    
+    # if it doesn't start with a colon, no source.
+    if (!$args[0] =~ m/^:/) {
+        $source = { type => 'none' };
+    }
+    
+    # it's a user.
+    elsif ($args[0] =~ m/^:(.+)!(.+)@(.+)/) {
+        shift @args;
+        $source = {
+            type => 'user',
+            nick => $1,
+            user => $2,
+            host => $3
+        };
+    }
+    
+    # it must be a server.
+    elsif ($args[0] =~ m/^:(.+)/) {
+        shift @args;
+        $source = {
+            type => 'server',
+            name => $1
+        };
+    }
+    
+    return ($source, @args);
 }
 
 # send login information.
@@ -256,7 +325,7 @@ sub _match {
     return unless blessed $other;
     
     # anything else, check if it belongs to this IRC object.
-    return $other->{irc} == $irc;
+    return ($other->can('irc') ? $other->irc : $other->{irc} or -1) == $irc;
     
 }
 
