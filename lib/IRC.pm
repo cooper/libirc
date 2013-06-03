@@ -43,7 +43,7 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '1.8';
+our $VERSION = '1.9';
 
 # create a new IRC instance
 sub new {
@@ -113,6 +113,28 @@ sub parse_data {
 
 }
 
+# handle a piece of incoming data.
+sub handle_data {
+    my ($irc, $data) = @_;
+    
+    # strip unwanted characters
+    $data =~ s/\0|\r//g;
+    
+    # parse each line, one at a time.
+    if ($data =~ m/\n/) {
+        $irc->handle_data($_) foreach split "\n", $data;
+        return;
+    }
+    
+    # parse the data.
+    my ($source, $command, @args) = $irc->parse_data_new($data);
+    $command = lc $command;
+    
+    $irc->fire_event(raw => $data, split(/\s/, $data)); # for anything
+    $irc->fire_event("scmd_$command" => @args) if $source->{type} eq 'none';
+    $irc->fire_event("cmd_$command"  => @args) if $source->{type} ne 'none';
+}
+
 # parse a piece of incoming data.
 sub parse_data_new {
     my ($irc, $data) = @_;    
@@ -153,7 +175,7 @@ sub parse_data_new {
     # determine the source.
     
     # if it doesn't start with a colon, no source.
-    if (!$args[0] =~ m/^:/) {
+    if ($args[0] !~ m/^:/) {
         $source = { type => 'none' };
     }
     
