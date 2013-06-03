@@ -32,7 +32,7 @@ use overload
 
 use EventedObject;
 
-use Scalar::Util 'weaken';
+use Scalar::Util qw(blessed weaken);
 
 use IRC::Pool;
 use IRC::User;
@@ -43,7 +43,7 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '1.9';
+our $VERSION = '2.0';
 
 # create a new IRC instance
 sub new {
@@ -81,12 +81,17 @@ sub configure {
     
 }
 
-# parse a raw piece of IRC data
+##############################
+### HANDLING INCOMING DATA ###
+##############################
+
+# DEPRECATED: parse a raw piece of IRC data.
 # this has been replaced by handle_data() and parse_data_new()
 # and remains here temporarily for compatibility only.
 sub parse_data {
     my ($irc, $data) = @_;
-
+    $irc->handle_data($data);
+    
     $data =~ s/\0|\r//g; # remove unwanted characters
 
     # parse one line at a time
@@ -131,8 +136,8 @@ sub handle_data {
     $command = lc $command;
     
     $irc->fire_event(raw => $data, split(/\s/, $data)); # for anything
-    $irc->fire_event("scmd_$command" => @args) if $source->{type} eq 'none';
-    $irc->fire_event("cmd_$command"  => @args) if $source->{type} ne 'none';
+    $irc->fire_event("scmd_$command" => $source, @args) if $source->{type} eq 'none';
+    $irc->fire_event("cmd_$command"  => $source, @args) if $source->{type} ne 'none';
 }
 
 # parse a piece of incoming data.
@@ -202,6 +207,93 @@ sub parse_data_new {
     return ($source, @args);
 }
 
+# handling arguments.
+sub args {
+    my @types = split /\s/, pop;
+    my ($irc, @args, @return) = __PACKAGE__;
+    
+    # filter out IRC objects and event fire objects.
+    ARG: foreach my $arg (@_) {
+        if (blessed $arg) {
+            $irc = $arg if $arg->isa('IRC');
+            $irc = $arg->object
+                if $arg->isa('EventedObject::EventFire')
+                && not $irc && blessed $irc;
+            next ARG;
+        }
+        push @args, $arg;
+    }
+    
+    my $i = -1;
+    my $return;
+    USTR: foreach (@types)     { $i++;  # type string w/o modifiers (i.e. 'user,channel')
+    TYPE: foreach (split /\|/) {        # individual type string (i.e. 'user')
+        my $type = $_;
+        my $arg  = $args[$i];
+        last TYPE if defined $return;
+        
+        when ('source') {
+        
+            # if the argument is a hash reference, it's a source ref.
+            if (ref $arg && ref $arg eq 'HASH') {
+                $return = $irc->_get_source($arg);
+                next TYPE;
+            }
+        
+            # TODO: check for user string, server string, etc.
+            
+        }
+        
+        # user source, id, or nickname.
+        when ('user') {
+        
+            # is it a source object?
+            if (ref $arg && ref $arg eq 'HASH') {
+                my $source = $irc->_get_source($arg);
+                $return = $source, next TYPE if $source;
+            }
+            
+            # nickname or ID.
+            $return = $irc->pool->get_user($arg);
+            
+        }
+        
+        # channel id or name.
+        when ('channel') {
+            $return = $irc->pool->get_channel($arg);
+        }
+        
+        # any string.
+        when ('.') {
+            $return = $arg;
+        }
+        
+    } push @return, $return; $return = undef }
+    
+    return @return;
+}
+
+# fetch a source from a source ref.
+sub _get_source {
+    my ($irc, $source) = @_;
+    return if not $source && ref $source eq 'HASH';
+    if ($source->{type} eq 'user') {
+        return $irc->new_user_from_nick($source->{nick});
+        # TODO: host/ident.
+    }
+    return;
+}
+
+#############################
+### SENDING OUTGOING DATA ###
+#############################
+
+# send data.
+sub send {
+    my ($irc, $data) = @_;
+    $irc->fire_event(send => $data);
+}
+
 # send login information.
 sub login {
     my $irc = shift;
@@ -260,11 +352,9 @@ sub login {
     
 }
 
-# send data.
-sub send {
-    my ($irc, $data) = @_;
-    $irc->fire_event(send => $data);
-}
+###################################
+### FETCHING USERS AND CHANNELS ###
+###################################
 
 # return a channel from its name
 sub channel_from_name {
@@ -327,6 +417,10 @@ sub user_from_string {
     return $user;
 }
 
+##########################
+### IRCv3 CAPABILITIES ###
+##########################
+
 # determine if the ircd we're connected to suppots a particular capability.
 sub has_cap {
     my ($irc, $cap) = @_;
@@ -338,6 +432,10 @@ sub cap_enabled {
     my ($irc, $cap) = @_;
     return $irc->{active_capab}->{lc $cap};
 }
+
+#########################
+### INTERNAL ROUTINES ###
+#########################
 
 # smart matching
 sub _match {
@@ -351,6 +449,8 @@ sub _match {
     
 }
 
+
+# fetchers.
 
 sub id   { shift->{id}   }
 sub pool { shift->{pool} }

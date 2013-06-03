@@ -23,7 +23,7 @@ my %handlers = (
     raw_903     => \&handle_sasldone,
     raw_904     => \&handle_sasldone,
     raw_906     => \&handle_sasldone,
-    raw_privmsg => \&handle_privmsg,
+    cmd_privmsg => \&handle_privmsg,
     raw_nick    => \&handle_nick,
     raw_join    => \&handle_join,
     raw_part    => \&handle_part,
@@ -187,29 +187,14 @@ sub handle_endofmotd {
 }
 
 sub handle_privmsg {
-    my ($irc, $event, $data, @args) = @_;
-    my $user    = $irc->new_user_from_string($args[0]);
-    my $target  = $args[2];
-
-    # find the target
-    $target = $irc->channel_from_name($target) ||
-              $irc->user_from_nick($target)    ||
-    do {
-        if ($target =~ m/^[\Q$$irc{ircd}{support}{chantypes}\E]/) {
-            $irc->new_channel_from_name($target);
-        }
-        else {
-            $irc->new_user_from_nick($target);
-        }
-    };
-
-    # grab message
-    my $msg = IRC::Utils::col((split /\s+/, $data, 4)[3]);
+    print "PRIVMSG: @_\n";
+    my ($irc, $event, $source, $target, $msg) = do { my @a = IRC::args(@_, 'source channel|user .'); print "A: @a\n"; @a };
+    $source && $target or return;
 
     # fire events
     EventedObject::fire_events_together(
-        [ $irc,     privmsg => $user, $target, $msg ],
-        [ $target,  privmsg => $user, $msg          ]
+        [ $irc,     privmsg => $source, $target, $msg ],
+        [ $target,  privmsg => $source, $msg          ]
     );
 
 }
