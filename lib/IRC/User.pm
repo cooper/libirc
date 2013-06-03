@@ -18,10 +18,10 @@ use overload
     '0+'     => sub { shift },                  # numeric context = memory address 
     'bool'   => sub { 1 },                      # boolean context = true
     '${}'    => sub { \shift->{nick} },         # scalar deref    = nickname
-    '~~'     => sub { $_[1]->has_user($_[0]) }, # smart match     = user in channel
+    '~~'     => \&_match,                       # smart match
     fallback => 1;
 
-use Scalar::Util 'weaken';
+use Scalar::Util 'blessed';
 
 #####################
 ### CLASS METHODS ###
@@ -89,6 +89,31 @@ sub id   { shift->{id}      }
 sub irc  { shift->pool->irc }
 sub pool { shift->{pool}    }
 
+# smart matching
+sub _match {
+    my ($user, $other) = @_;
+    
+    # anything that is not blessed is a no no.
+    return unless blessed $other;
+    
+    # for channels, check if the user is in the channel.
+    if ($other->isa('IRC::Channel')) {
+        return $other->has_user($user);
+    }
+    
+    # if it's another user, check if they share common channel(s).
+    if ($other->isa('IRC::User')) {
+        return $user->in_common($other);
+    }
+    
+    # for IRC objects, check if the user belongs to that server.
+    if ($other->isa('IRC')) {
+        return $other == $user->{irc};
+    }
+    
+    return;
+}
+
 sub DESTROY {
     my $user = shift;
 
@@ -96,5 +121,6 @@ sub DESTROY {
     $user->pool->remove_user($user) if $user->pool;
     
 }
+
 
 1

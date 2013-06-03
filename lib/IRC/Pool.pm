@@ -87,6 +87,7 @@ sub remove_user {
     return 1;
 }
 
+# increase user reference count.
 sub retain_user {
     my ($pool, $user) = @_;
     my $refcount = ++$pool->{ref_count}{$user};
@@ -101,6 +102,7 @@ sub retain_user {
     return $refcount;
 }
 
+# decrease user reference count.
 sub release_user {
     my ($pool, $user) = @_;
     my $refcount = --$pool->{ref_count}{$user};
@@ -113,6 +115,7 @@ sub release_user {
     return $refcount;
 }
 
+# fetch next available user ID.
 sub _next_user_id {
     my $pool = shift;
     $pool->{_cid} ||= 'a';
@@ -123,11 +126,13 @@ sub _next_user_id {
 ### MANAGING CHANNELS ###
 #########################
 
+# fetch a channel from its ID or name.
 sub get_channel {
     my ($pool, $name) = @_;
-    return $pool->{channels}{ $pool->irc->id.lc($name) }
+    return $pool->{channels}{$name} || $pool->{channels}{ $pool->irc->id.lc($name) }
 }
 
+# add channel to the pool.
 sub add_channel {
     my ($pool, $channel) = @_;
     return $channel if exists $channel->{id} && $pool->{channels}{$channel};
@@ -152,6 +157,7 @@ sub add_channel {
     return $channel;
 }
 
+# remove a channel from the pool.
 sub remove_channel {
     my ($pool, $channel) = @_;
     delete $pool->{channels}{$channel};
