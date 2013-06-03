@@ -86,46 +86,6 @@ sub remove_user {
     return 1;
 }
 
-# increase reference count.
-sub retain {
-    my ($pool, $obj) = @_;
-    my $refcount = ++$pool->{ref_count}{$obj};
-    
-    return $refcount if $refcount != 1;
-    
-    # refcount has been incremented to one.
-    # store the user semi-permanently.
-
-    my $type = 'objects';
-    $type = 'users'    if $obj->isa('IRC::User');
-    $type = 'channels' if $obj->isa('IRC::Channel');
-
-    # re-reference.
-    delete $pool->{$type}{$obj};
-    $pool->{$type}{$obj} = $obj;
-    
-    return 1;
-}
-
-# decrease reference count.
-sub release {
-    my ($pool, $obj) = @_;
-    my $refcount = --$pool->{ref_count}{$obj};
-    
-    return $refcount if $refcount;
-
-    # users.
-    $pool->remove_user($obj) if $obj->isa('IRC::User');
-    
-    # channels.
-    if ($obj->isa('IRC::Channel')) {
-        $obj->remove_user($_) foreach $obj->users;
-        $pool->remove_channel($obj);
-    }
-
-    return 0;
-}
-
 # fetch next available user ID.
 sub _next_user_id {
     my $pool = shift;
@@ -173,6 +133,73 @@ sub add_channel {
 sub remove_channel {
     my ($pool, $channel) = @_;
     delete $pool->{channels}{$channel};
+}
+
+##################
+### REFERENCES ###
+##################
+
+# increase reference count.
+sub retain {
+    my ($pool, $obj, $comment) = @_;
+    my $refcount = ++$pool->{ref_count}{$obj};
+    
+    # add comment.
+    if (defined $comment) {
+        $pool->{comments}{$obj} ||= [];
+        push @{ $pool->{comments}{$obj} }, $comment;
+    }
+    
+    return $refcount if $refcount != 1;
+    
+    # refcount has been incremented to one.
+    # store the user semi-permanently.
+
+    my $type = 'objects';
+    $type = 'users'    if $obj->isa('IRC::User');
+    $type = 'channels' if $obj->isa('IRC::Channel');
+
+    # re-reference.
+    delete $pool->{$type}{$obj};
+    $pool->{$type}{$obj} = $obj;
+    
+    return 1;
+}
+
+# decrease reference count.
+sub release {
+    my ($pool, $obj, $comment) = @_;
+    my $refcount = --$pool->{ref_count}{$obj};
+    
+    # remove comment.
+    if ($pool->{comments}{$obj} && defined $comment) {
+        @{ $pool->{comments}{$obj} } = grep { $_ ne $comment } @{ $pool->{comments}{$obj} };
+    }
+    
+    return $refcount if $refcount;
+
+    # users.
+    $pool->remove_user($obj) if $obj->isa('IRC::User');
+    
+    # channels.
+    if ($obj->isa('IRC::Channel')) {
+        $obj->remove_user($_) foreach $obj->users;
+        $pool->remove_channel($obj);
+    }
+
+    return 0;
+}
+
+# fetch reference count.
+sub refcount {
+    my ($pool, $obj) = @_;
+    return $pool->{ref_count}{$obj} || 0;
+}
+
+# fetch reference comments.
+sub references {
+    my ($pool, $obj) = @_;
+    return @{ $pool->{comments}{$obj} || [] };
 }
 
 1

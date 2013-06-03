@@ -348,20 +348,8 @@ sub handle_quit {
     my $user   = $irc->new_user_from_string($args[0]);
     my $reason = defined $args[2] ? IRC::Utils::col((split /\s+/, $data, 3)[2]) : undef;
 
-    # remove user from all channels
-    foreach my $channel ($user->channels) {
-        $channel->remove_user($user);
-        $channel->fire_event(user_quit => $user, $reason);
-    }
-
-    # remove user from IRC object
-    # TODO: this should not be here. it should be in User.pm.
-    delete $user->{irc};
-    delete $irc->{nicks}{ lc $user->{nick} };
-    delete $irc->{users}{$user};
-
     $user->fire_event(quit => $reason);
-
+    $irc->pool->remove_user($user);
 }
 
 # Handle CAP
