@@ -97,6 +97,15 @@ sub set_account {
     $user->fire_event(account_changed => $old_account, $account);
 }
 
+# set away reason
+sub set_away {
+    my ($user, $reason) = @_;
+    my $old_away  = $user->{away};
+    $user->{away} = $reason;
+    $user->fire_event(away_changed => $old_away, $reason);
+    $user->fire('returned_from_away') if !defined $reason;
+}
+
 # returns a list of channels the user is on
 sub channels {
     return values %{ shift->{channels} };

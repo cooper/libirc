@@ -43,7 +43,7 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '3.4';
+our $VERSION = '3.5';
 
 # create a new IRC instance
 sub new {
@@ -411,8 +411,8 @@ sub login {
     $irc->send("NICK $nick");
     $irc->send("USER $ident * * :$real");
     
-    $irc->{supported_cap} = [qw(extended-join multi-prefix sasl account-notify)];
-    $irc->cap_request($_) foreach qw(extended-join multi-prefix account-notify);
+    $irc->{supported_cap} = [qw(sasl extended-join multi-prefix account-notify away-notify)];
+    $irc->cap_request($_) foreach qw(extended-join multi-prefix account-notify away-notify);
     
     # SASL authentication.
     if ($irc->{sasl_user} && defined $irc->{sasl_pass}) {

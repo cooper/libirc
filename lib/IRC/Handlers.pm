@@ -30,6 +30,7 @@ my %handlers = (
     raw_quit     => \&handle_quit,
     raw_cap      => \&handle_cap,
     cmd_account  => \&handle_account,
+    cmd_away     => \&handle_away,
     cap_ack_sasl => \&handle_cap_ack_sasl
 );
 
@@ -383,6 +384,12 @@ sub handle_cap {
 sub handle_account {
     my ($user, $account) = IRC::args(@_, '+user *');
     $user->set_account($account eq '*' ? undef : $account);
+}
+
+# handle AWAY
+sub handle_away {
+    my ($user, $reason) = IRC::args(@_, '+user *');
+    $user->set_away($reason);
 }
 
 # handle SASL acknowledgement.
