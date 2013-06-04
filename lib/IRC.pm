@@ -43,7 +43,7 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '3.6';
+our $VERSION = '3.7';
 
 # create a new IRC instance
 sub new {
@@ -493,13 +493,13 @@ sub user_from_string {
 # determine if the ircd we're connected to suppots a particular capability.
 sub has_cap {
     my ($irc, $cap) = @_;
-    return $irc->{ircd}{capab}{lc $cap};
+    return $irc->{ircd}{cap}{lc $cap};
 }
 
 # determine if we have told the server we want a CAP, and the server is okay with it.
 sub cap_enabled {
     my ($irc, $cap) = @_;
-    return $irc->{active_capab}{lc $cap};
+    return $irc->{active_cap}{lc $cap};
 }
 
 # request a CAP.
@@ -541,7 +541,7 @@ sub _send_cap_requests {
     my $irc = shift;
     return unless $irc->{pending_cap};
     $irc->send("CAP REQ :".join(' ',
-        grep { exists $irc->{ircd}{capab}{$_} } @{ $irc->{pending_cap} }
+        grep { exists $irc->{ircd}{cap}{$_} } @{ $irc->{pending_cap} }
     ));
 }
 

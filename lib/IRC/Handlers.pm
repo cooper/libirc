@@ -24,7 +24,7 @@ my %handlers = (
     raw_904         => \&handle_sasldone,
     raw_906         => \&handle_sasldone,
     cmd_privmsg     => \&handle_privmsg,
-    raw_nick        => \&handle_nick,
+    cmd_nick        => \&handle_nick,
     cmd_join        => \&handle_join,
     cmd_part        => \&handle_part,
     raw_quit        => \&handle_quit,
@@ -344,7 +344,7 @@ sub handle_cap {
 # handle CAP LS.
 sub handle_cap_ls {
     my ($irc, $event, @params) = @_;
-    $irc->{ircd}{capab}{lc $_} = 1 foreach @params;
+    $irc->{ircd}{cap}{lc $_} = 1 foreach @params;
     $irc->_send_cap_requests;
 }
 
@@ -358,20 +358,20 @@ sub handle_cap_ack {
         if ($_ =~ m/^(-|~|=)(.*)$/) {
         
             # disable this cap.
-            delete $irc->{active_capab}{$2} if $1 eq '-';
+            delete $irc->{active_cap}{$2} if $1 eq '-';
             
             # acknowledge our support.
             $irc->send("CAP ACK $2") if $1 eq '~' && $2 ~~ @{ $irc->{supported_cap} };
             
             # sticky.
-            $irc->{sticky_capab}{$2} = 1 if $1 eq '=';
+            $irc->{sticky_cap}{$2} = 1 if $1 eq '=';
             
         }
         
         # no modifier; enable it.
         else {
             $event_fired{$cap}         =
-            $irc->{active_capab}{$cap} = 1;
+            $irc->{active_cap}{$cap} = 1;
             $irc->fire_event("cap_ack_$cap");
         }
         
