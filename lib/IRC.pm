@@ -43,7 +43,7 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '2.9';
+our $VERSION = '3.0';
 
 # create a new IRC instance
 sub new {
@@ -164,7 +164,7 @@ sub parse_data_new {
         # if we haven't already received a colon
         # and this isn't the first character (that would be a source)
         # and we're not in the middle of an argument
-        if ($char eq ':' && !$got_colon && $char_i && !length $args[$arg_i]) {
+        if ($char eq ':' && !$got_colon && $char_i and !defined $args[$arg_i] || !length $args[$arg_i]) {
             $got_colon = 1;
             $last_char = $char;
             next;
