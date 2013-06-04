@@ -43,7 +43,7 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '2.0';
+our $VERSION = '2.1';
 
 # create a new IRC instance
 sub new {
@@ -65,7 +65,7 @@ sub configure {
         $irc->IRC::Handlers::apply_handlers();
         $irc->{_applied_handlers} = 1;
         
-        $irc->{id} = $c++;
+        $irc->{id} = $c++.q(I);
     }
 
     # create pool and own object.
@@ -219,6 +219,7 @@ sub args {
             $irc = $arg->object
                 if $arg->isa('EventedObject::EventFire')
                 && not $irc && blessed $irc;
+            push @return, $arg;
             next ARG;
         }
         push @args, $arg;

@@ -187,9 +187,7 @@ sub handle_endofmotd {
 }
 
 sub handle_privmsg {
-    print "PRIVMSG: @_\n";
-    my ($irc, $event, $source, $target, $msg) = do { my @a = IRC::args(@_, 'source channel|user .'); print "A: @a\n"; @a };
-    $source && $target or return;
+    my ($irc, $event, $source, $target, $msg) = IRC::args(@_, 'source channel|user .');
 
     # fire events
     EventedObject::fire_events_together(
