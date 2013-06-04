@@ -43,7 +43,7 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '3.2';
+our $VERSION = '3.3';
 
 # create a new IRC instance
 sub new {
@@ -347,6 +347,7 @@ sub args {
         }
         
     }
+    
         # if the + modifier is present, this value MUST be defined.
         if ('+' ~~ @mods && !defined $return) {
             return;
@@ -373,7 +374,7 @@ sub _get_source {
             
         # update user.
         $user->set_user($source->{user})
-            if !defined $user->{host} || $source->{user} ne $user->{user};    
+            if !defined $user->{user} || $source->{user} ne $user->{user};    
             
         return $user;    
     }
