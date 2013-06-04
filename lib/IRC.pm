@@ -43,7 +43,7 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '2.3';
+our $VERSION = '2.4';
 
 # create a new IRC instance
 sub new {
@@ -210,28 +210,54 @@ sub parse_data_new {
 # handling arguments.
 sub args {
     my @types = split /\s/, pop;
-    my ($irc, $event, @args, @return) = __PACKAGE__;
+    my ($irc, $event, $i, $u, @args, @return, @modifiers) = __PACKAGE__;
     
     # filter out IRC objects and event fire objects.
     ARG: foreach my $arg (@_) {
         if (blessed $arg) {
+        
+            # IRC object.
             $irc = $arg if $arg->isa('IRC');
-            $irc = $arg->object
-                if $arg->isa('EventedObject::EventFire')
-                && not $irc && blessed $irc;
-            $event = $arg if $arg->isa('EventedObject::EventFire');
+            
+            # event object.
+            if ($arg->isa('EventedObject::EventFire')) {
+                $irc   = $arg->object if !$irc;
+                $event = $arg;
+            }
+
             next ARG;
         }
+        
+        # any other argument.
         push @args, $arg;
+        
     }
     
-    my $i = -1;
-    my $return;
-    USTR: foreach (@types)     { $i++;  # type string w/o modifiers (i.e. 'user,channel')
-    TYPE: foreach (split /\|/) {        # individual type string (i.e. 'user')
-        my $type = $_;
+    # filter modifiers.
+    $u = 0;
+    foreach my $ustr (@types) {
+        $ustr =~ m/^([\.\+]*)(.+)$/;
+        $modifiers[$u] = $1 ? [split //, $1] : [];
+        $types[$u]     = $2;
+        $u++;
+    }
+    
+    ($i, $u) = (-1, -1);
+    
+    my $return;                # irc   ustr
+    USTR: foreach (@types)     { $i++; $u++;    # type string w/o modifiers (i.e. 'user,channel')
+    
         my $arg  = $args[$i];
+        my @mods = @{$modifiers[$u]};
+        
+    TYPE: foreach (split /\|/) {                # individual type string (i.e. 'user')
+        my $type = $_;
+        
+        # we already found a return value for this ustr.
         last TYPE if defined $return;
+        
+        # dummy modifier; skip.
+        next USTR if '.' ~~ @mods;
         
         # IRC object.
         when ('irc') {
@@ -301,7 +327,15 @@ sub args {
             next USTR;
         }
         
-    } push @return, $return; $return = undef }
+    }
+        # if the + modifier is present, this value MUST be defined.
+        if ('+' ~~ @mods && !defined $return) {
+            return;
+        }
+        
+        push @return, $return; $return = undef
+    
+    }
     
     return @return;
 }

@@ -49,7 +49,7 @@ sub apply_handlers {
 
 # handle RPL_ISUPPORT (005)
 sub handle_isupport {
-    my ($irc, @stuff) = IRC::args(@_, 'irc . . @');
+    my ($irc, @stuff) = IRC::args(@_, 'irc .source .target @');
     
     my $val;
     foreach my $support (@stuff[0..$#stuff - 1]) {
@@ -183,7 +183,7 @@ sub handle_endofmotd {
 }
 
 sub handle_privmsg { # :source PRIVMSG target message
-    my ($irc, $source, $target, $msg) = IRC::args(@_, 'irc source channel|user *');
+    my ($irc, $source, $target, $msg) = IRC::args(@_, 'irc +source +channel|user *') or return;
 
     # fire events
     EventedObject::fire_events_together(
