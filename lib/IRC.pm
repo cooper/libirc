@@ -43,7 +43,7 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '2.2';
+our $VERSION = '2.3';
 
 # create a new IRC instance
 sub new {
@@ -210,7 +210,7 @@ sub parse_data_new {
 # handling arguments.
 sub args {
     my @types = split /\s/, pop;
-    my ($irc, @args, @return) = __PACKAGE__;
+    my ($irc, $event, @args, @return) = __PACKAGE__;
     
     # filter out IRC objects and event fire objects.
     ARG: foreach my $arg (@_) {
@@ -219,7 +219,7 @@ sub args {
             $irc = $arg->object
                 if $arg->isa('EventedObject::EventFire')
                 && not $irc && blessed $irc;
-            push @return, $arg;
+            $event = $arg if $arg->isa('EventedObject::EventFire');
             next ARG;
         }
         push @args, $arg;
@@ -233,6 +233,19 @@ sub args {
         my $arg  = $args[$i];
         last TYPE if defined $return;
         
+        # IRC object.
+        when ('irc') {
+            $return = $irc;
+            $i--; # these are not actually IRC arguments.
+        }
+        
+        # event fire object.
+        when (['event', 'fire']) {
+            $return = $event;
+            $i--; # these are not actually IRC arguments.
+        }
+        
+        # server or user.
         when ('source') {
         
             # if the argument is a hash reference, it's a source ref.
@@ -265,8 +278,27 @@ sub args {
         }
         
         # any string.
-        when ('.') {
+        when ('*') {
             $return = $arg;
+        }
+        
+        # space-separated list.
+        # this assumes all remaining arguments are part of the list.
+        when (['@', 'list']) {
+            push @return, map { split /\s/ } @args[$i..$#args];
+            next USTR;
+        }
+        
+        # the rest of the arguments.
+        when ('rest') {
+            push @return, @args[$i..$#args];
+            next USTR;
+        }
+        
+        # dummy.
+        when ('.') {
+            # do nothing.
+            next USTR;
         }
         
     } push @return, $return; $return = undef }
@@ -292,6 +324,7 @@ sub _get_source {
             
         return $user;    
     }
+    return 'fakeserver'; # TODO: servers.
     return;
 }
 
@@ -465,7 +498,5 @@ sub _match {
 
 sub id   { shift->{id}   }
 sub pool { shift->{pool} }
-
-sub DESTROY { print 'destroying irc', shift, "\n" }
 
 1

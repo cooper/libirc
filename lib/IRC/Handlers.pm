@@ -13,13 +13,13 @@ use strict;
 use feature qw(switch);
 
 my %handlers = (
-    raw_005     => \&handle_isupport,
+    cmd_005     => \&handle_isupport,
     raw_332     => \&handle_got_topic,
     raw_333     => \&handle_got_topic_time,
     raw_353     => \&handle_namesreply,
-    raw_376     => \&handle_endofmotd,
-    raw_422     => \&handle_endofmotd, # no motd file
-    raw_433     => \&handle_nick_taken,
+    cmd_376     => \&handle_endofmotd,
+    cmd_422     => \&handle_endofmotd,
+    cmd_433     => \&handle_nick_taken,
     raw_903     => \&handle_sasldone,
     raw_904     => \&handle_sasldone,
     raw_906     => \&handle_sasldone,
@@ -49,14 +49,10 @@ sub apply_handlers {
 
 # handle RPL_ISUPPORT (005)
 sub handle_isupport {
-    my ($irc, $event, $data, @args) = @_;
-
-    my @stuff = @args[3..$#args];
+    my ($irc, @stuff) = IRC::args(@_, 'irc . . @');
+    
     my $val;
-
-    foreach my $support (@stuff) {
-
-        return if $support =~ m/^:/; # starts with : indicates the :are supported by..
+    foreach my $support (@stuff[0..$#stuff - 1]) {
         $val = 1;
 
         # get BLAH=blah types
@@ -186,8 +182,8 @@ sub handle_endofmotd {
     return
 }
 
-sub handle_privmsg {
-    my ($irc, $event, $source, $target, $msg) = IRC::args(@_, 'source channel|user .');
+sub handle_privmsg { # :source PRIVMSG target message
+    my ($irc, $source, $target, $msg) = IRC::args(@_, 'irc source channel|user *');
 
     # fire events
     EventedObject::fire_events_together(
@@ -198,14 +194,10 @@ sub handle_privmsg {
 }
 
 # handle a nick change
+# :user NICK new_nick
 sub handle_nick {
-    my ($irc, $event, $data, @args) = @_;
-    my $user = $irc->new_user_from_string($args[0]);
-    my $old  = $user->{nick};
-    $user->set_nick(IRC::Utils::col($args[2]));
-
-    # tell pplz
-    $irc->fire_event(user_changed_nick => $user, $old, IRC::Utils::col($args[2]));
+    my ($user, $nick) = IRC::args(@_, 'user *');
+    $user->set_nick($nick);
 }
 
 # user joins a channel
@@ -321,8 +313,8 @@ sub handle_namesreply {
 }
 
 sub handle_nick_taken {
-    my ($irc, $event, $data, @args) = @_;
-    my $nick = $args[3];
+    my ($irc, $nick) = IRC::args(@_, 'irc . . *');
+    print "nick tkaen: $nick\n";
     $irc->fire_event(nick_taken => $nick);
 }
 
