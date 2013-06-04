@@ -13,25 +13,27 @@ use strict;
 use feature qw(switch);
 
 my %handlers = (
-    cmd_005      => \&handle_isupport,
-    raw_332      => \&handle_got_topic,
-    raw_333      => \&handle_got_topic_time,
-    raw_353      => \&handle_namesreply,
-    cmd_376      => \&handle_endofmotd,
-    cmd_422      => \&handle_endofmotd,
-    cmd_433      => \&handle_nick_taken,
-    raw_903      => \&handle_sasldone,
-    raw_904      => \&handle_sasldone,
-    raw_906      => \&handle_sasldone,
-    cmd_privmsg  => \&handle_privmsg,
-    raw_nick     => \&handle_nick,
-    cmd_join     => \&handle_join,
-    raw_part     => \&handle_part,
-    raw_quit     => \&handle_quit,
-    raw_cap      => \&handle_cap,
-    cmd_account  => \&handle_account,
-    cmd_away     => \&handle_away,
-    cap_ack_sasl => \&handle_cap_ack_sasl
+    cmd_005         => \&handle_isupport,
+    raw_332         => \&handle_got_topic,
+    raw_333         => \&handle_got_topic_time,
+    raw_353         => \&handle_namesreply,
+    cmd_376         => \&handle_endofmotd,
+    cmd_422         => \&handle_endofmotd,
+    cmd_433         => \&handle_nick_taken,
+    raw_903         => \&handle_sasldone,
+    raw_904         => \&handle_sasldone,
+    raw_906         => \&handle_sasldone,
+    cmd_privmsg     => \&handle_privmsg,
+    raw_nick        => \&handle_nick,
+    cmd_join        => \&handle_join,
+    cmd_part        => \&handle_part,
+    raw_quit        => \&handle_quit,
+    cmd_cap         => \&handle_cap,
+    cap_ls          => \&handle_cap_ls,
+    cap_ack         => \&handle_cap_ack,
+    cap_ack_sasl    => \&handle_cap_ack_sasl,
+    cmd_account     => \&handle_account,
+    cmd_away        => \&handle_away
 );
 
 # applies each handler to an IRC instance
@@ -204,7 +206,10 @@ sub handle_nick {
 
 # user joins a channel
 sub handle_join {
-    my ($irc, $user, $channel, $account, $realname) = IRC::args(@_, 'irc +user +channel * *') or return;
+    my ($irc, $user, $channel, $account, $realname) =
+    IRC::args(@_, 'irc +user +channel * *') or return;
+    
+    # add user to channel.
     $channel->add_user($user);
     
     # extended join.
@@ -213,6 +218,7 @@ sub handle_join {
         $user->set_real($realname);
     }
     
+    # fire events.
     EventedObject::fire_events_together(
         [ $user,    joined_channel => $channel ],
         [ $channel, user_joined    => $user    ]
@@ -222,15 +228,16 @@ sub handle_join {
 
 # user parts a channel
 sub handle_part {
-    my ($irc, $event, $data, @args) = @_;
-    my $user    = $irc->new_user_from_string($args[0]);
-    my $channel = $irc->new_channel_from_name($args[2]);
-    
+    my ($irc, $user, $channel, $reason) =
+    IRC::args(@_, 'irc +user +channel *') or return;
+
+    # remove the user.
     $channel->remove_user($user);
 
+    # first events.
     EventedObject::fire_events_together(
-        [ $channel, user_parted    => $user    ],
-        [ $user,    parted_channel => $channel ]
+        [ $channel, user_parted    => $user, $reason    ],
+        [ $user,    parted_channel => $channel, $reason ]
     );
 
 }
@@ -329,66 +336,72 @@ sub handle_quit {
 
 # Handle CAP
 sub handle_cap {
-    my ($irc, $event, $data, @args) = @_;
-    my $subcommand = $args[3];
-    my $params     = IRC::Utils::col(join ' ', @args[4..$#args]);
-    given (uc $subcommand) {
-    
-        when ('LS') {
-            $irc->{ircd}{capab}{lc $_} = 1 foreach (split(' ', $params));
-            $irc->_send_cap_requests;
+    my ($irc, $subcommand, @params) = IRC::args(@_, 'irc .server .target * @');
+    $subcommand = lc $subcommand;
+    $irc->fire_event("cap_$subcommand" => @params);
+}
+
+# handle CAP LS.
+sub handle_cap_ls {
+    my ($irc, $event, @params) = @_;
+    $irc->{ircd}{capab}{lc $_} = 1 foreach @params;
+    $irc->_send_cap_requests;
+}
+
+# handle CAP ACK.
+sub handle_cap_ack {
+    my ($irc, $event, @params) = @_;
+    my %event_fired;
+    foreach my $cap (@params) {
+
+        # there is a modifier.
+        if ($_ =~ m/^(-|~|=)(.*)$/) {
+        
+            # disable this cap.
+            delete $irc->{active_capab}{$2} if $1 eq '-';
+            
+            # acknowledge our support.
+            $irc->send("CAP ACK $2") if $1 eq '~' && $2 ~~ @{ $irc->{supported_cap} };
+            
+            # sticky.
+            $irc->{sticky_capab}{$2} = 1 if $1 eq '=';
+            
         }
         
-        when ('ACK') {
-            my %event_fired;
-            foreach my $cap (split /\s/, $params) {
-            
-                if ($_ =~ m/^(-|~|=)(.*)$/) {
-                
-                    # disable this cap.
-                    delete $irc->{active_capab}{$2} if $1 eq '-';
-                    
-                    # acknowledge our support.
-                    $irc->send("CAP ACK $2") if $1 eq '~' && $2 ~~ @{ $irc->{supported_cap} };
-                    
-                }
-                
-                else {
-                    $event_fired{$cap} = 1;
-                    $irc->{active_capab}{$cap} = 1;
-                    $irc->fire_event(cap_ack => $cap);
-                    $irc->fire_event("cap_ack_$cap");
-                }
-                
-            }
-            
-            # fire cap_no_ack_* for any requests not available.
-            foreach my $cap (@{ delete $irc->{pending_cap} || [] }) {
-                next if $event_fired{$cap};
-                
-                # release this one because it's not available.
-                $irc->release_login if $irc->{waiting_cap}{lc $cap};
-                
-                $irc->fire_event(cap_no_ack => $cap);
-                $irc->fire_event("cap_no_ack_$cap");
-            }
-            
-            $irc->_check_login;
-            
+        # no modifier; enable it.
+        else {
+            $event_fired{$cap}         =
+            $irc->{active_capab}{$cap} = 1;
+            $irc->fire_event("cap_ack_$cap");
         }
         
     }
+
+    # fire cap_no_ack_* for any requests not available.
+    foreach my $cap (@{ delete $irc->{pending_cap} || [] }) {
+        next if $event_fired{$cap};
+        
+        # release this one because it's not available.
+        $irc->release_login if $irc->{waiting_cap}{lc $cap};
+        
+        $irc->fire_event(cap_no_ack => $cap);
+        $irc->fire_event("cap_no_ack_$cap");
+    }
+
+    # check if we're ready to send CAP END.
+    $irc->_check_login;
+
 }
 
 # Handle ACCOUNT
 sub handle_account {
-    my ($user, $account) = IRC::args(@_, '+user *');
+    my ($user, $account) = IRC::args(@_, '+user *') or return;
     $user->set_account($account eq '*' ? undef : $account);
 }
 
 # handle AWAY
 sub handle_away {
-    my ($user, $reason) = IRC::args(@_, '+user *');
+    my ($user, $reason) = IRC::args(@_, '+user *') or return;
     $user->set_away($reason);
 }
 
