@@ -43,7 +43,7 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '3.0';
+our $VERSION = '3.1';
 
 # create a new IRC instance
 sub new {
@@ -513,7 +513,6 @@ sub retain_login {
     my $irc = shift;
     $irc->{login_refcount} ||= 0;
     $irc->{login_refcount}++;
-    $irc->_check_login;
     return $irc->{login_refcount};
 }
 
@@ -521,6 +520,7 @@ sub retain_login {
 sub release_login {
     my $irc = shift;
     $irc->{login_refcount} ||= 0;
+    $irc->{login_refcount}--;
     $irc->_check_login;
     return $irc->{login_refcount};
 }
