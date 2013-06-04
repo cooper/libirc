@@ -333,27 +333,38 @@ sub handle_cap {
     my ($irc, $event, $data, @args) = @_;
     my $subcommand = $args[3];
     my $params     = IRC::Utils::col(join ' ', @args[4..$#args]);
-    given (uc $subcommand)
-    {
-        when ('LS')
-        {
+    given (uc $subcommand) {
+        when ('LS') {
             $irc->{ircd}{capab}{$_} = 1 foreach (split(' ', $params));
         }
-        when ('ACK')
-        {
         
-            foreach (split(' ', $params))
-            {
-                if ($_ =~ m/^(-|~|=)(.*)$/)
-                {
+        when ('ACK') {
+            my %event_fired;
+            foreach my $cap (split /\s/, $params) {
+            
+                if ($_ =~ m/^(-|~|=)(.*)$/) {
                     delete $irc->{active_capab}{$2} if $1 eq '-';
                     $irc->send("CAP ACK $2") if $1 eq '~'; # XXX rework this logic
                 }
+                
                 else {
-                    $irc->{active_capab}{$_} = 1;
-                    $irc->fire_event(cap_ack => $_);
-                    $irc->fire_event("cap_ack_$_");
+                    $event_fired{$cap} = 1;
+                    $irc->{active_capab}{$cap} = 1;
+                    $irc->fire_event(cap_ack => $cap);
+                    $irc->fire_event("cap_ack_$cap");
                 }
+                
+            }
+            
+            # fire cap_no_ack_* for any requests not available.
+            foreach my $cap (@{ delete $irc->{pending_cap} || [] }) {
+                next if $event_fired{$cap};
+                
+                # release this one because it's not available.
+                $irc->release_login;
+                
+                $irc->fire_event(cap_no_ack => $cap);
+                $irc->fire_event("cap_no_ack_$cap");
             }
             
         }
@@ -405,8 +416,6 @@ sub handle_cap_ack_sasl {
             $irc->send("AUTHENTICATE +");
         }
     }
-    
-    $irc->retain_login;
 }
 
 # Handle SASL completion

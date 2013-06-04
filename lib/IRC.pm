@@ -43,7 +43,7 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '2.8';
+our $VERSION = '2.9';
 
 # create a new IRC instance
 sub new {
@@ -135,7 +135,7 @@ sub handle_data {
     my ($source, $command, @args) = $irc->parse_data_new($data);
     $command = lc $command;
     
-    $irc->fire_event(raw => $data, split(/\s/, $data)); # for anything
+    #$irc->fire_event(raw => $data, split(/\s/, $data)); # for anything
     $irc->fire_event("scmd_$command" => $source, @args) if $source->{type} eq 'none';
     $irc->fire_event("cmd_$command"  => $source, @args) if $source->{type} ne 'none';
 }
@@ -412,8 +412,10 @@ sub login {
     
     # SASL authentication.
     if ($irc->{sasl_user} && defined $irc->{sasl_pass}) {
-        $irc->send('CAP REQ sasl');
+        $irc->cap_request('sasl');
     }
+    
+    $irc->_check_login;
     
 }
 
@@ -496,6 +498,14 @@ sub has_cap {
 sub cap_enabled {
     my ($irc, $cap) = @_;
     return $irc->{active_capab}->{lc $cap};
+}
+
+sub cap_request {
+    my ($irc, $cap) = @_;
+    $irc->retain_login;
+    $irc->send("CAP REQ $cap");
+    $irc->{pending_cap} ||= [];
+    push @{ $irc->{pending_cap} }, $cap;
 }
 
 # add a wait during login.
