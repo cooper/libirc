@@ -187,8 +187,9 @@ sub handle_privmsg { # :source PRIVMSG target message
 
     # fire events
     EventedObject::fire_events_together(
-        [ $irc,     privmsg => $source, $target, $msg ],
-        [ $target,  privmsg => $source, $msg          ]
+        [ $irc,    privmsg     => $source, $target, $msg ], # generic privmsg for any source or target
+        [ $target, got_privmsg => $source, $msg          ], # incoming from source
+        [ $source, privmsg     => $target, $msg          ]  # outgoing from source
     );
 
 }
