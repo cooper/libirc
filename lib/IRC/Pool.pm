@@ -86,10 +86,17 @@ sub remove_user {
     return 1;
 }
 
+# change a user's nickname.
+sub set_user_nick {
+    my ($pool, $user, $old_nick, $nick) = @_;
+    delete $pool->{nicks}{lc $old_nick};
+    $pool->{nicks}{lc $nick} = $user;
+}
+
 # fetch next available user ID.
 sub _next_user_id {
     my $pool = shift;
-    $pool->{_cid} ||= 'a';
+    $pool->{_cid} ||= 'A';
     return $pool->irc->id.$pool->{_cid}++;
 }
 

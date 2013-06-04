@@ -43,7 +43,7 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '2.1';
+our $VERSION = '2.2';
 
 # create a new IRC instance
 sub new {
@@ -65,14 +65,14 @@ sub configure {
         $irc->IRC::Handlers::apply_handlers();
         $irc->{_applied_handlers} = 1;
         
-        $irc->{id} = $c++.q(I);
+        $irc->{id} = $c++.q(irc);
     }
 
     # create pool and own object.
     $irc->{pool} ||= IRC::Pool->new(irc  => $irc);
     $irc->{me}   ||= IRC::User->new(nick => $opts{nick});
     $irc->pool->add_user($irc->{me});
-    $irc->pool->retain($irc->{me});
+    $irc->pool->retain($irc->{me}, 'me:is_me');
 
     # Do we need SASL?
     if ($opts{sasl_user} && defined $opts{sasl_pass} && !$INC{'MIME/Base64.pm'}) {
@@ -279,8 +279,18 @@ sub _get_source {
     my ($irc, $source) = @_;
     return if not $source && ref $source eq 'HASH';
     if ($source->{type} eq 'user') {
-        return $irc->new_user_from_nick($source->{nick});
-        # TODO: host/ident.
+        my $user = $irc->new_user_from_nick($source->{nick});
+        return unless $user;
+        
+        # update host.
+        $user->set_host($source->{host})
+            if !length $user->{host} || $source->{host} ne $user->{host};
+            
+        # update user.
+        $user->set_user($source->{user})
+            if !length $user->{user} || $source->{user} ne $user->{user};    
+            
+        return $user;    
     }
     return;
 }
@@ -455,5 +465,7 @@ sub _match {
 
 sub id   { shift->{id}   }
 sub pool { shift->{pool} }
+
+sub DESTROY { print 'destroying irc', shift, "\n" }
 
 1

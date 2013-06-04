@@ -50,20 +50,44 @@ sub new {
 
 # change the nickname and move the object's location
 sub set_nick {
-    my ($user, $newnick) = @_;
-    my $irc = $user->irc;
-
-    delete $irc->{nicks}{ lc $user->{nick} };
-
-    my $oldnick                = $user->{nick};
-    $user->{nick}              = $newnick;
-    $irc->{nicks}{lc $newnick} = $user->id;
+    my ($user, $nick) = @_;
+    my $old_nick  = $user->{nick};
+    $user->{nick} = $nick;
+    
+    # change it in the pool.
+    $user->pool->set_user_nick($user, $old_nick, $nick);
 
     # fire events
-    $user->fire_event(nick_change => $oldnick, $newnick);
+    EventedObject::fire_events_together(
+        [ $user, nickname_changed => $old_nick, $nick ],
+        [ $user, nick_change      => $old_nick, $nick ] # compatibility.
+    );
     
 }
 
+# set hostname
+sub set_host {
+    my ($user, $host) = @_;
+    my $old_host  = $user->{host};
+    $user->{host} = $host;
+    $user->fire_event(hostname_changed => $old_host, $host);
+}
+
+# set username
+sub set_user {
+    my ($user, $username) = @_;
+    my $old_user  = $user->{user};
+    $user->{user} = $username;
+    $user->fire_event(username_changed => $old_user, $username);
+}
+
+# set account name
+sub set_account {
+    my ($user, $account) = @_;
+    my $old_account  = $user->{account};
+    $user->{account} = $account;
+    $user->fire_event(account_changed => $old_account, $account);
+}
 
 # returns a list of channels the user is on
 sub channels {
@@ -77,12 +101,6 @@ sub in_common {
         return 1 if $channel->has_user($other_user)
     }
     return;
-}
-
-# set account name
-sub set_account {
-    my ($user, $account) = @_;
-    $user->{account} = $account;
 }
 
 sub id   { shift->{id}      }
