@@ -43,7 +43,7 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '2.4';
+our $VERSION = '2.5';
 
 # create a new IRC instance
 sub new {
@@ -233,12 +233,17 @@ sub args {
         
     }
     
+    # type aliases.
+    state $aliases = {
+        target => 'channel|user'
+    };
+    
     # filter modifiers.
     $u = 0;
     foreach my $ustr (@types) {
         $ustr =~ m/^([\.\+]*)(.+)$/;
         $modifiers[$u] = $1 ? [split //, $1] : [];
-        $types[$u]     = $2;
+        $types[$u]     = exists $aliases->{$2} ? $aliases->{$2} : $2;
         $u++;
     }
     

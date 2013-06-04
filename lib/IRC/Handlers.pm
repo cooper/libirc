@@ -183,7 +183,7 @@ sub handle_endofmotd {
 }
 
 sub handle_privmsg { # :source PRIVMSG target message
-    my ($irc, $source, $target, $msg) = IRC::args(@_, 'irc +source +channel|user *') or return;
+    my ($irc, $source, $target, $msg) = IRC::args(@_, 'irc +source +target *') or return;
 
     # fire events
     EventedObject::fire_events_together(
