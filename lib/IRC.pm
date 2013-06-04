@@ -43,7 +43,7 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '2.7';
+our $VERSION = '2.8';
 
 # create a new IRC instance
 sub new {
@@ -413,39 +413,7 @@ sub login {
     # SASL authentication.
     if ($irc->{sasl_user} && defined $irc->{sasl_pass}) {
         $irc->send('CAP REQ sasl');
-        $irc->on(cap_ack_sasl => sub {
-            $irc->send('AUTHENTICATE PLAIN');
-            
-            my $str = MIME::Base64::encode_base64(join("\0",
-                $irc->{sasl_user},
-                $irc->{sasl_user},
-                $irc->{sasl_pass}
-            ), '');
-            
-            if (!length $str) {
-                $irc->send('AUTHENTICATE +');
-                return;
-            }
-            
-            else {
-                while (length $str >= 400) {
-                    my $substr = substr $str, 0, 400, '';
-                    $irc->send("AUTHENTICATE $substr");
-                }
-                
-                if (length $str) {
-                    $irc->send("AUTHENTICATE $str");
-                }
-                
-                else {
-                    $irc->send("AUTHENTICATE +");
-                }
-            }
-        });
     }
-    
-    # SASL not enabled.
-    else { $irc->send('CAP END') }
     
 }
 
@@ -528,6 +496,29 @@ sub has_cap {
 sub cap_enabled {
     my ($irc, $cap) = @_;
     return $irc->{active_capab}->{lc $cap};
+}
+
+# add a wait during login.
+sub retain_login {
+    my $irc = shift;
+    $irc->{login_refcount} ||= 0;
+    $irc->{login_refcount}++;
+    $irc->_check_login;
+    return $irc->{login_refcount};
+}
+
+# release a wait during login.
+sub release_login {
+    my $irc = shift;
+    $irc->{login_refcount} ||= 0;
+    $irc->_check_login;
+    return $irc->{login_refcount};
+}
+
+# internal: check if CAP negotiation is complete.
+sub _check_login {
+    my $irc = shift;
+    $irc->send('CAP END') if !$irc->{login_refcount};
 }
 
 #########################

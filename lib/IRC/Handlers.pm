@@ -13,24 +13,24 @@ use strict;
 use feature qw(switch);
 
 my %handlers = (
-    cmd_005     => \&handle_isupport,
-    raw_332     => \&handle_got_topic,
-    raw_333     => \&handle_got_topic_time,
-    raw_353     => \&handle_namesreply,
-    cmd_376     => \&handle_endofmotd,
-    cmd_422     => \&handle_endofmotd,
-    cmd_433     => \&handle_nick_taken,
-    raw_903     => \&handle_sasldone,
-    raw_904     => \&handle_sasldone,
-    raw_906     => \&handle_sasldone,
-    cmd_privmsg => \&handle_privmsg,
-    raw_nick    => \&handle_nick,
-    raw_join    => \&handle_join,
-    raw_part    => \&handle_part,
-    raw_quit    => \&handle_quit,
-    raw_cap     => \&handle_cap,
-    raw_account => \&handle_account,
-
+    cmd_005      => \&handle_isupport,
+    raw_332      => \&handle_got_topic,
+    raw_333      => \&handle_got_topic_time,
+    raw_353      => \&handle_namesreply,
+    cmd_376      => \&handle_endofmotd,
+    cmd_422      => \&handle_endofmotd,
+    cmd_433      => \&handle_nick_taken,
+    raw_903      => \&handle_sasldone,
+    raw_904      => \&handle_sasldone,
+    raw_906      => \&handle_sasldone,
+    cmd_privmsg  => \&handle_privmsg,
+    raw_nick     => \&handle_nick,
+    raw_join     => \&handle_join,
+    raw_part     => \&handle_part,
+    raw_quit     => \&handle_quit,
+    raw_cap      => \&handle_cap,
+    raw_account  => \&handle_account,
+    cap_ack_sasl => \&handle_cap_ack_sasl
 );
 
 # applies each handler to an IRC instance
@@ -197,7 +197,7 @@ sub handle_privmsg { # :source PRIVMSG target message
 # handle a nick change
 # :user NICK new_nick
 sub handle_nick {
-    my ($user, $nick) = IRC::args(@_, 'user *');
+    my ($user, $nick) = IRC::args(@_, '+user *') or return;
     $user->set_nick($nick);
 }
 
@@ -341,6 +341,7 @@ sub handle_cap {
         }
         when ('ACK')
         {
+        
             foreach (split(' ', $params))
             {
                 if ($_ =~ m/^(-|~|=)(.*)$/)
@@ -348,13 +349,13 @@ sub handle_cap {
                     delete $irc->{active_capab}{$2} if $1 eq '-';
                     $irc->send("CAP ACK $2") if $1 eq '~'; # XXX rework this logic
                 }
-                else
-                {
+                else {
                     $irc->{active_capab}{$_} = 1;
                     $irc->fire_event(cap_ack => $_);
                     $irc->fire_event("cap_ack_$_");
                 }
             }
+            
         }
     }
 }
@@ -373,11 +374,45 @@ sub handle_account {
     }
 }
 
+# handle SASL acknowledgement.
+sub handle_cap_ack_sasl {
+    my $irc = shift;
+    
+    $irc->send('AUTHENTICATE PLAIN');
+    
+    my $str = MIME::Base64::encode_base64(join("\0",
+        $irc->{sasl_user},
+        $irc->{sasl_user},
+        $irc->{sasl_pass}
+    ), '');
+    
+    if (!length $str) {
+        $irc->send('AUTHENTICATE +');
+        return;
+    }
+    
+    else {
+        while (length $str >= 400) {
+            my $substr = substr $str, 0, 400, '';
+            $irc->send("AUTHENTICATE $substr");
+        }
+        
+        if (length $str) {
+            $irc->send("AUTHENTICATE $str");
+        }
+        
+        else {
+            $irc->send("AUTHENTICATE +");
+        }
+    }
+    
+    $irc->retain_login;
+}
+
 # Handle SASL completion
-sub handle_sasldone
-{
-    my ($irc, $event, $data, @args) = @_;
-    $irc->send('CAP END');
+sub handle_sasldone {
+    my $irc = shift;
+    $irc->release_login;
 }
 
 1
