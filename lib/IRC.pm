@@ -43,7 +43,7 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '3.3';
+our $VERSION = '3.4';
 
 # create a new IRC instance
 sub new {
@@ -113,8 +113,8 @@ sub parse_data {
     my $command = lc $args[1];
 
     # fire the raw_* event (several of which fire more events from there on)
-    $irc->fire_event("raw_$command", $data, @args);
     $irc->fire_event(raw => $data, @args); # for anything
+    $irc->fire_event("raw_$command", $data, @args);
 
 }
 
@@ -319,7 +319,7 @@ sub args {
         
         # channel id or name.
         when ('channel') {
-            $return = $irc->pool->get_channel($arg);
+            $return = $irc->new_channel_from_name($arg);
         }
         
         # any string.
@@ -411,12 +411,13 @@ sub login {
     $irc->send("NICK $nick");
     $irc->send("USER $ident * * :$real");
     
+    $irc->{supported_cap} = [qw(extended-join multi-prefix sasl account-notify)];
+    $irc->cap_request($_) foreach qw(extended-join multi-prefix account-notify);
+    
     # SASL authentication.
     if ($irc->{sasl_user} && defined $irc->{sasl_pass}) {
-        $irc->cap_request('sasl');
+        $irc->cap_request('sasl', 1);
     }
-    
-    $irc->_check_login;
     
 }
 
@@ -492,21 +493,24 @@ sub user_from_string {
 # determine if the ircd we're connected to suppots a particular capability.
 sub has_cap {
     my ($irc, $cap) = @_;
-    return $irc->{ircd}->{capab}->{lc $cap};
+    return $irc->{ircd}{capab}{lc $cap};
 }
 
 # determine if we have told the server we want a CAP, and the server is okay with it.
 sub cap_enabled {
     my ($irc, $cap) = @_;
-    return $irc->{active_capab}->{lc $cap};
+    return $irc->{active_capab}{lc $cap};
 }
 
+# request a CAP.
 sub cap_request {
-    my ($irc, $cap) = @_;
-    $irc->retain_login;
-    $irc->send("CAP REQ $cap");
+    my ($irc, $cap, $wait) = @_;
+    if ($wait) {
+        $irc->retain_login;
+        $irc->{waiting_cap}{lc $cap} = 1;
+    }
     $irc->{pending_cap} ||= [];
-    push @{ $irc->{pending_cap} }, $cap;
+    push @{ $irc->{pending_cap} }, lc $cap;
 }
 
 # add a wait during login.
@@ -529,7 +533,16 @@ sub release_login {
 # internal: check if CAP negotiation is complete.
 sub _check_login {
     my $irc = shift;
-    $irc->send('CAP END') if !$irc->{login_refcount};
+    $irc->send('CAP END') if !$irc->{login_refcount} || $irc->{login_refcount} <= 0;
+}
+
+# send pending CAP requests.
+sub _send_cap_requests {
+    my $irc = shift;
+    return unless $irc->{pending_cap};
+    $irc->send("CAP REQ :".join(' ',
+        grep { exists $irc->{ircd}{capab}{$_} } @{ $irc->{pending_cap} }
+    ));
 }
 
 #########################

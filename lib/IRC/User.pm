@@ -81,6 +81,14 @@ sub set_user {
     $user->fire_event(username_changed => $old_user, $username);
 }
 
+# set realname
+sub set_real {
+    my ($user, $real) = @_;
+    my $old_real  = $user->{real};
+    $user->{real} = $real;
+    $user->fire_event(realname_changed => $old_real, $real);
+}
+
 # set account name
 sub set_account {
     my ($user, $account) = @_;

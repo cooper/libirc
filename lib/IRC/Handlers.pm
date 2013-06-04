@@ -25,11 +25,11 @@ my %handlers = (
     raw_906      => \&handle_sasldone,
     cmd_privmsg  => \&handle_privmsg,
     raw_nick     => \&handle_nick,
-    raw_join     => \&handle_join,
+    cmd_join     => \&handle_join,
     raw_part     => \&handle_part,
     raw_quit     => \&handle_quit,
     raw_cap      => \&handle_cap,
-    raw_account  => \&handle_account,
+    cmd_account  => \&handle_account,
     cap_ack_sasl => \&handle_cap_ack_sasl
 );
 
@@ -203,15 +203,13 @@ sub handle_nick {
 
 # user joins a channel
 sub handle_join {
-    my ($irc, $event, $data, @args) = @_;
-    my $user    = $irc->new_user_from_string($args[0]);
-    my $channel = $irc->new_channel_from_name($args[2]);
+    my ($irc, $user, $channel, $account, $realname) = IRC::args(@_, 'irc +user +channel * *') or return;
     $channel->add_user($user);
     
-    # If extended-join is enabled, try to get account name
-    if ($irc->cap_enabled('extended-join')) 
-    {
-        $user->set_account($args[3]) if $args[3] ne '*'; # Set account name (* = not logged in)
+    # extended join.
+    if ($irc->cap_enabled('extended-join')) {
+        $user->set_account($account eq '*' ? undef : $account) if ($user->{account} || '*') ne $account;
+        $user->set_real($realname);
     }
     
     EventedObject::fire_events_together(
@@ -334,8 +332,10 @@ sub handle_cap {
     my $subcommand = $args[3];
     my $params     = IRC::Utils::col(join ' ', @args[4..$#args]);
     given (uc $subcommand) {
+    
         when ('LS') {
-            $irc->{ircd}{capab}{$_} = 1 foreach (split(' ', $params));
+            $irc->{ircd}{capab}{lc $_} = 1 foreach (split(' ', $params));
+            $irc->_send_cap_requests;
         }
         
         when ('ACK') {
@@ -343,8 +343,13 @@ sub handle_cap {
             foreach my $cap (split /\s/, $params) {
             
                 if ($_ =~ m/^(-|~|=)(.*)$/) {
+                
+                    # disable this cap.
                     delete $irc->{active_capab}{$2} if $1 eq '-';
-                    $irc->send("CAP ACK $2") if $1 eq '~'; # XXX rework this logic
+                    
+                    # acknowledge our support.
+                    $irc->send("CAP ACK $2") if $1 eq '~' && $2 ~~ @{ $irc->{supported_cap} };
+                    
                 }
                 
                 else {
@@ -361,28 +366,23 @@ sub handle_cap {
                 next if $event_fired{$cap};
                 
                 # release this one because it's not available.
-                $irc->release_login;
+                $irc->release_login if $irc->{waiting_cap}{lc $cap};
                 
                 $irc->fire_event(cap_no_ack => $cap);
                 $irc->fire_event("cap_no_ack_$cap");
             }
             
+            $irc->_check_login;
+            
         }
+        
     }
 }
 
 # Handle ACCOUNT
 sub handle_account {
-    my ($irc, $event, $data, @args) = @_;
-    my $user    = $irc->new_user_from_string($args[0]);
-    if ($args[2] eq '*')
-    {
-        delete $user->{account};
-    }
-    else
-    {
-        $user->set_account($args[2]);
-    }
+    my ($user, $account) = IRC::args(@_, '+user *');
+    $user->set_account($account eq '*' ? undef : $account);
 }
 
 # handle SASL acknowledgement.
