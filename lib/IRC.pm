@@ -43,7 +43,7 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '2.5';
+our $VERSION = '2.6';
 
 # create a new IRC instance
 sub new {
@@ -235,7 +235,9 @@ sub args {
     
     # type aliases.
     state $aliases = {
-        target => 'channel|user'
+        target => 'channel|user',
+        event  => 'fire',
+        '@'    => 'list'
     };
     
     # filter modifiers.
@@ -271,7 +273,7 @@ sub args {
         }
         
         # event fire object.
-        when (['event', 'fire']) {
+        when ('fire') {
             $return = $event;
             $i--; # these are not actually IRC arguments.
         }
@@ -285,7 +287,19 @@ sub args {
                 next TYPE;
             }
         
-            # TODO: check for user string, server string, etc.
+            # check for a user string.
+            if ($arg =~ m/^:*(.+)!(.+)\@(.+)/) {
+                my ($nick, $ident, $host) = ($1, $2, $3);
+                $return = $irc->_get_source({
+                    type => 'user',
+                    nick => $nick,
+                    user => $ident,
+                    host => $host
+                });
+                next TYPE;
+            }
+            
+            # TODO: servers.
             
         }
         
@@ -315,7 +329,7 @@ sub args {
         
         # space-separated list.
         # this assumes all remaining arguments are part of the list.
-        when (['@', 'list']) {
+        when ('list') {
             push @return, map { split /\s/ } @args[$i..$#args];
             next USTR;
         }
