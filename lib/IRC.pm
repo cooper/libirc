@@ -43,7 +43,7 @@ use IRC::Functions::IRC;
 use IRC::Functions::User;
 use IRC::Functions::Channel;
 
-our $VERSION = '3.1';
+our $VERSION = '3.2';
 
 # create a new IRC instance
 sub new {
@@ -369,11 +369,11 @@ sub _get_source {
         
         # update host.
         $user->set_host($source->{host})
-            if !length $user->{host} || $source->{host} ne $user->{host};
+            if !defined $user->{host} || $source->{host} ne $user->{host};
             
         # update user.
         $user->set_user($source->{user})
-            if !length $user->{user} || $source->{user} ne $user->{user};    
+            if !defined $user->{host} || $source->{user} ne $user->{user};    
             
         return $user;    
     }
