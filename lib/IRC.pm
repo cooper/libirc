@@ -35,15 +35,18 @@ use EventedObject;
 use Scalar::Util qw(blessed weaken);
 
 use IRC::Pool;
-use IRC::User;
+use IRC::Server;
 use IRC::Channel;
+use IRC::User;
 use IRC::Handlers;
 use IRC::Utils;
 use IRC::Functions::IRC;
-use IRC::Functions::User;
+use IRC::Functions::Server;
 use IRC::Functions::Channel;
+use IRC::Functions::User;
 
-our $VERSION = '3.7';
+
+our $VERSION = '3.8';
 
 # create a new IRC instance
 sub new {
@@ -65,14 +68,19 @@ sub configure {
         $irc->IRC::Handlers::apply_handlers();
         $irc->{_applied_handlers} = 1;
         
-        $irc->{id} = $c++.q(irc);
+        $irc->{id} = $c++.q(i);
     }
 
-    # create pool and own object.
-    $irc->{pool} ||= IRC::Pool->new(irc  => $irc);
-    $irc->{me}   ||= IRC::User->new(nick => $opts{nick});
-    $irc->pool->add_user($irc->{me});
-    $irc->pool->retain($irc->{me}, 'me:is_me');
+    # create pool, server, and own user object.
+    if (!$irc->{server}) {
+        $irc->{server}  = IRC::Server->new();
+        $irc->{pool}    = IRC::Pool->new(irc  => $irc);
+        $irc->{me}      = IRC::User->new(nick => $opts{nick});
+        $irc->pool->add_user($irc->{me});
+        $irc->pool->add_server($irc->{server});
+        $irc->pool->retain($irc->{me}, 'me:is_me');
+        $irc->pool->retain($irc->{server}, 'me:on_server');
+    }
 
     # Do we need SASL?
     if ($opts{sasl_user} && defined $opts{sasl_pass} && !$INC{'MIME/Base64.pm'}) {
@@ -113,7 +121,7 @@ sub parse_data {
     my $command = lc $args[1];
 
     # fire the raw_* event (several of which fire more events from there on)
-    $irc->fire_event(raw => $data, @args); # for anything
+    #$irc->fire_event(raw => $data, @args); # for anything
     $irc->fire_event("raw_$command", $data, @args);
 
 }
@@ -135,7 +143,7 @@ sub handle_data {
     my ($source, $command, @args) = $irc->parse_data_new($data);
     $command = lc $command;
     
-    #$irc->fire_event(raw => $data, split(/\s/, $data)); # for anything
+    $irc->fire_event(raw => $data, split(/\s/, $data)); # for anything
     $irc->fire_event("scmd_$command" => $source, @args) if $source->{type} eq 'none';
     $irc->fire_event("cmd_$command"  => $source, @args) if $source->{type} ne 'none';
 }

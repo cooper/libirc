@@ -350,12 +350,12 @@ sub handle_cap_ls {
 
 # handle CAP ACK.
 sub handle_cap_ack {
-    my ($irc, $event, @params) = @_;
+    my ($irc, @params) = IRC::args(@_, 'irc @');
     my %event_fired;
     foreach my $cap (@params) {
 
         # there is a modifier.
-        if ($_ =~ m/^(-|~|=)(.*)$/) {
+        if ($cap =~ m/^(-|~|=)(.+)$/) {
         
             # disable this cap.
             delete $irc->{active_cap}{$2} if $1 eq '-';

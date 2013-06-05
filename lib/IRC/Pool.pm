@@ -21,6 +21,116 @@ sub new {
 
 sub irc { shift->{irc} }
 
+########################
+### MANAGING SERVERS ###
+########################
+
+# get server by ID or name.
+sub get_server {
+    my ($pool, $id_or_name) = @_;
+    return $pool->{servers}{$id_or_name}                ||
+    exists $pool->{snames}{lc $id_or_name}              ?
+    $pool->{servers}{ $pool->{snames}{lc $id_or_name} } :
+    undef;
+}
+
+# add a server to the pool.
+sub add_server {
+    my ($pool, $server) = @_;
+    return $server if exists $server->{id} && $pool->{servers}{$server};
+    
+    # use the next available ID.
+    my $id = $server->{id} = $pool->_next_server_id;
+    
+    # weakly reference to the server.
+    # this will be strengthened when the server is retained.
+    $pool->{servers}{$id}     = $server;
+    $pool->{ref_count}{$id} = 0;
+    weaken($pool->{servers}{$id});
+    
+    # reference to the pool.
+    $server->{pool} = $pool;
+    
+    # weakly reference to the IRC object.
+    # this is very silly, but it still here for compatibility.
+    weaken($server->{irc} = $pool->irc);
+    
+    # store the server name.
+    $pool->{snames}{ lc $server->{name} } = $id;
+    
+    # make the IRC object a listener.
+    $server->add_listener($pool->irc, 'server');
+    
+    return $server;
+}
+
+# remove a server from the pool.
+sub remove_server {
+    my ($pool, $server) = @_;
+    return unless $pool->{servers}{$server};
+    
+    delete $pool->{snames}{ lc $server->{name} };
+    delete $pool->{servers}{$server};
+    
+    return 1;
+}
+
+# change a server's name.
+sub set_server_name {
+    my ($pool, $server, $old_name, $name) = @_;
+    delete $pool->{snames}{lc $old_name};
+    $pool->{snames}{lc $name} = $server;
+}
+
+# fetch next available server ID.
+sub _next_server_id {
+    my $pool = shift;
+    $pool->{_sid} ||= 0;
+    return $pool->irc->id.$pool->{_sid}++.q(s);
+}
+
+#########################
+### MANAGING CHANNELS ###
+#########################
+
+# fetch a channel from its ID or name.
+sub get_channel {
+    my ($pool, $name) = @_;
+    return $pool->{channels}{$name} || $pool->{channels}{ $pool->irc->id.lc($name) }
+}
+
+# add channel to the pool.
+sub add_channel {
+    my ($pool, $channel) = @_;
+    return $channel if exists $channel->{id} && $pool->{channels}{$channel};
+
+    my $id = $channel->{id} = $pool->irc->id.lc($channel->{name});
+
+    # weakly reference to the channel.
+    # this will be strengthened when the channel is retained.
+    $pool->{channels}{$id} = $channel;
+    weaken($pool->{channels}{$id});
+    
+    # reference to the pool.
+    $channel->{pool} = $pool;
+    
+    # weakly reference to the IRC object.
+    # this is very silly, but it still here for compatibility.
+    $channel->{irc} = $pool->irc;
+    weaken($channel->{irc});
+    
+    # make the IRC object a listener.
+    $channel->add_listener($pool->irc, 'channel');
+
+    return $channel;
+}
+
+# remove a channel from the pool.
+sub remove_channel {
+    my ($pool, $channel) = @_;
+    delete $pool->{channels}{$channel};
+}
+
 ######################
 ### MANAGING USERS ###
 ######################
@@ -96,50 +206,8 @@ sub set_user_nick {
 # fetch next available user ID.
 sub _next_user_id {
     my $pool = shift;
-    $pool->{_cid} ||= 'A';
-    return $pool->irc->id.$pool->{_cid}++;
-}
-
-#########################
-### MANAGING CHANNELS ###
-#########################
-
-# fetch a channel from its ID or name.
-sub get_channel {
-    my ($pool, $name) = @_;
-    return $pool->{channels}{$name} || $pool->{channels}{ $pool->irc->id.lc($name) }
-}
-
-# add channel to the pool.
-sub add_channel {
-    my ($pool, $channel) = @_;
-    return $channel if exists $channel->{id} && $pool->{channels}{$channel};
-
-    my $id = $channel->{id} = $pool->irc->id.lc($channel->{name});
-
-    # weakly reference to the channel.
-    # this will be strengthened when the channel is retained.
-    $pool->{channels}{$id} = $channel;
-    weaken($pool->{channels}{$id});
-    
-    # reference to the pool.
-    $channel->{pool} = $pool;
-    
-    # weakly reference to the IRC object.
-    # this is very silly, but it still here for compatibility.
-    $channel->{irc} = $pool->irc;
-    weaken($channel->{irc});
-    
-    # make the IRC object a listener.
-    $channel->add_listener($pool->irc, 'channel');
-
-    return $channel;
-}
-
-# remove a channel from the pool.
-sub remove_channel {
-    my ($pool, $channel) = @_;
-    delete $pool->{channels}{$channel};
+    $pool->{_uid} ||= 0;
+    return $pool->irc->id.$pool->{_uid}++.q(u);
 }
 
 ##################

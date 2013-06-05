@@ -3,7 +3,7 @@
 # ntirc: an insanely flexible IRC client.          |
 # foxy: an insanely flexible IRC bot.              |
 # Copyright (c) 2011, the NoTrollPlzNet developers |
-# Copyright (c) 2012-12, Mitchell Cooper           |
+# Copyright (c) 2012-13, Mitchell Cooper           |
 # User.pm: the user object class.                  |
 #---------------------------------------------------
 package IRC::User;
@@ -32,7 +32,6 @@ sub new {
 
     # create a new user object   
     bless my $user = {
-        events   => {},
         channels => {},
         nick     => 'libirc', # default
         %opts
