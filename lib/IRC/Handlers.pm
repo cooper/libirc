@@ -186,7 +186,7 @@ sub handle_endofmotd {
 }
 
 sub handle_privmsg { # :source PRIVMSG target message
-    my ($irc, $source, $target, $msg) = IRC::args(@_, 'irc +source +target *') or return;
+    my ($irc, $source, $target, $msg) = IRC::args(@_, 'irc +source +target *msg') or return;
 
     # fire events
     EventedObject::fire_events_together(
@@ -200,14 +200,14 @@ sub handle_privmsg { # :source PRIVMSG target message
 # handle a nick change
 # :user NICK new_nick
 sub handle_nick {
-    my ($user, $nick) = IRC::args(@_, '+user *') or return;
+    my ($user, $nick) = IRC::args(@_, '+user *nick') or return;
     $user->set_nick($nick);
 }
 
 # user joins a channel
 sub handle_join {
     my ($irc, $user, $channel, $account, $realname) =
-    IRC::args(@_, 'irc +user +channel * *') or return;
+    IRC::args(@_, 'irc +user +channel *acct *real') or return;
     
     # add user to channel.
     $channel->add_user($user);
@@ -229,7 +229,7 @@ sub handle_join {
 # user parts a channel
 sub handle_part {
     my ($irc, $user, $channel, $reason) =
-    IRC::args(@_, 'irc +user +channel *') or return;
+    IRC::args(@_, 'irc +user +channel *reason') or return;
 
     # remove the user.
     $channel->remove_user($user);
@@ -336,21 +336,21 @@ sub handle_quit {
 
 # Handle CAP
 sub handle_cap {
-    my ($irc, $subcommand, @params) = IRC::args(@_, 'irc .server .target * @');
+    my ($irc, $subcommand, @params) = IRC::args(@_, 'irc .server .target *sub @caps');
     $subcommand = lc $subcommand;
     $irc->fire_event("cap_$subcommand" => @params);
 }
 
 # handle CAP LS.
 sub handle_cap_ls {
-    my ($irc, $event, @params) = @_;
+    my ($irc, @params) = @_;
     $irc->{ircd}{cap}{lc $_} = 1 foreach @params;
     $irc->_send_cap_requests;
 }
 
 # handle CAP ACK.
 sub handle_cap_ack {
-    my ($irc, @params) = IRC::args(@_, 'irc @');
+    my ($irc, @params) = @_;
     my %event_fired;
     foreach my $cap (@params) {
 
@@ -395,13 +395,13 @@ sub handle_cap_ack {
 
 # Handle ACCOUNT
 sub handle_account {
-    my ($user, $account) = IRC::args(@_, '+user *') or return;
+    my ($user, $account) = IRC::args(@_, '+user *account') or return;
     $user->set_account($account eq '*' ? undef : $account);
 }
 
 # handle AWAY
 sub handle_away {
-    my ($user, $reason) = IRC::args(@_, '+user *') or return;
+    my ($user, $reason) = IRC::args(@_, '+user *reason') or return;
     $user->set_away($reason);
 }
 

@@ -46,7 +46,7 @@ use IRC::Functions::Channel;
 use IRC::Functions::User;
 
 
-our $VERSION = '3.8';
+our $VERSION = '3.9';
 
 # create a new IRC instance
 sub new {
@@ -244,16 +244,16 @@ sub args {
     # type aliases.
     state $aliases = {
         target => 'channel|user',
-        event  => 'fire',
-        '@'    => 'list'
+        event  => 'fire'
     };
     
     # filter modifiers.
     $u = 0;
     foreach my $ustr (@types) {
-        $ustr =~ m/^([\.\+]*)(.+)$/;
+        $ustr =~ m/^([\.\+@\*]*)(.*)$/;
         $modifiers[$u] = $1 ? [split //, $1] : [];
         $types[$u]     = exists $aliases->{$2} ? $aliases->{$2} : $2;
+        $types[$u]     = defined $types[$u] ? $types[$u] : 'none';
         $u++;
     }
     
@@ -272,7 +272,10 @@ sub args {
         last TYPE if defined $return;
         
         # dummy modifier; skip.
-        next USTR if '.' ~~ @mods;
+        when ($_ eq 'dummy' || '.' ~~ @mods) {
+            # do nothing.
+            next USTR;
+        }
         
         # IRC object.
         when ('irc') {
@@ -331,26 +334,21 @@ sub args {
         }
         
         # any string.
-        when ('*') {
+        when ($_ eq 'any' || '*' ~~ @mods) {
             $return = $arg;
         }
         
         # space-separated list.
         # this assumes all remaining arguments are part of the list.
-        when ('list') {
+        when ($_ eq 'list' || '@' ~~ @mods) {
             push @return, map { split /\s/ } @args[$i..$#args];
             next USTR;
         }
         
         # the rest of the arguments.
+        # this is similar to list, but it does not split the arguments by space.
         when ('rest') {
             push @return, @args[$i..$#args];
-            next USTR;
-        }
-        
-        # dummy.
-        when ('.') {
-            # do nothing.
             next USTR;
         }
         
@@ -548,7 +546,7 @@ sub _check_login {
 sub _send_cap_requests {
     my $irc = shift;
     return unless $irc->{pending_cap};
-    $irc->send("CAP REQ :".join(' ',
+    $irc->send('CAP REQ :'.join(' ',
         grep { exists $irc->{ircd}{cap}{$_} } @{ $irc->{pending_cap} }
     ));
 }
@@ -572,7 +570,8 @@ sub _match {
 
 # fetchers.
 
-sub id   { shift->{id}   }
-sub pool { shift->{pool} }
+sub id     { shift->{id}     }
+sub pool   { shift->{pool}   }
+sub server { shift->{server} }
 
 1
