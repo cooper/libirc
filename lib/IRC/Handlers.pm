@@ -14,9 +14,9 @@ use feature qw(switch);
 
 my %handlers = (
     cmd_005         => \&handle_isupport,
-    raw_332         => \&handle_got_topic,
-    raw_333         => \&handle_got_topic_time,
-    raw_353         => \&handle_namesreply,
+    cmd_332         => \&handle_got_topic,
+    cmd_333         => \&handle_got_topic_time,
+    cmd_353         => \&handle_namesreply,
     cmd_376         => \&handle_endofmotd,
     cmd_422         => \&handle_endofmotd,
     cmd_433         => \&handle_nick_taken,
@@ -244,39 +244,26 @@ sub handle_part {
 
 # RPL_TOPIC
 sub handle_got_topic {
-    my ($irc, $event, $data, @args) = @_;
-
-    # get the channel
-    my $channel = $irc->new_channel_from_name($args[3]);
-
-    # store the topic temporarily until we get RPL_TOPICWHOTIME
-    $channel->{temp_topic} = IRC::Utils::col((split /\s+/, $data, 5)[4]);
+    my ($channel, $topic) = IRC::args(@_, '.source .target channel *topic');
+    
+    # store the topic temporarily until we get RPL_TOPICWHOTIME.
+    $channel->{temp_topic} = $topic;
 }
 
 # RPL_TOPICWHOTIME
 sub handle_got_topic_time {
-    my ($irc, $event, $data, @args) = @_;
+    my ($channel, $setter, $settime) = IRC::args(@_, '.source .target channel *setter *settime');
 
-    # get the channel
-    my $channel = $irc->new_channel_from_name($args[3]);
-    my ($setter, $settime) = ($args[4], $args[5]);
-
-    # set the topic
+    # set the topic.
     $channel->set_topic(delete $channel->{temp_topic}, $setter, $settime);
 
-    # fire event
-    $irc->fire_event(channel_got_topic => $channel->{topic}{topic}, $setter, $settime);
 }
 
 # RPL_NAMREPLY
 sub handle_namesreply {
-    my ($irc, $event, $data, @args) = @_;
-    my $channel = $irc->new_channel_from_name($args[4]);
-
-    # names with their prefixes in front
-    my @names = split /\s+/, IRC::Utils::col(join ' ', @args[5..$#args]);
-
-    # get a hash of prefixes
+    my ($irc, $channel, @names) = IRC::args(@_, 'irc .source .type .target channel @names');
+    
+    # get a hash of prefixes.
     my %prefixes;
     foreach my $level (keys %{ $irc->{ircd}{prefix} }) {
         $prefixes{ $irc->{ircd}{prefix}{$level}[0] } = $level
@@ -305,7 +292,7 @@ sub handle_namesreply {
         }
 
         my $user = $irc->new_user_from_nick($nick);
-        $user->set_nick($nick);
+        $user->set_nick($nick); # XXX: why?
 
         # add the user to the channel
         $channel->add_user($user);
@@ -313,7 +300,6 @@ sub handle_namesreply {
         # apply the levels
         foreach my $level (@levels) {
             $channel->add_status($user, $level);
-            $irc->fire_event(channel_set_user_status => $user, $level);
         }
 
     }
