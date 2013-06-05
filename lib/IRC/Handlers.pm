@@ -10,7 +10,7 @@ package IRC::Handlers;
 
 use warnings;
 use strict;
-use feature qw(switch);
+use 5.010;
 
 my %handlers = (
     cmd_005         => \&handle_isupport,
@@ -33,7 +33,10 @@ my %handlers = (
     cap_ack         => \&handle_cap_ack,
     cap_ack_sasl    => \&handle_cap_ack_sasl,
     cmd_account     => \&handle_account,
-    cmd_away        => \&handle_away
+    cmd_away        => \&handle_away,
+    cmd_352         => \&handle_whoreply,
+    cmd_354         => \&handle_whoxreply,
+    cmd_315         => \&handle_whoend
 );
 
 # applies each handler to an IRC instance
@@ -52,8 +55,8 @@ sub apply_handlers {
 
 # handle RPL_ISUPPORT (005)
 sub handle_isupport {
-    my ($irc, @stuff) = IRC::args(@_, 'irc .source .target @');
-    
+    my ($irc, @stuff) = IRC::args(@_, 'irc .source .target @stuff');
+
     my $val;
     foreach my $support (@stuff[0..$#stuff - 1]) {
         $val = 1;
@@ -176,8 +179,8 @@ sub handle_isupport {
 sub handle_endofmotd {
     my $irc = shift;
     if ($irc->{autojoin} && ref $irc->{autojoin} eq 'ARRAY') {
-        foreach my $channel (@{$irc->{autojoin}}) {
-            $irc->send("JOIN $channel");
+        foreach my $chan_name (@{$irc->{autojoin}}) {
+            $irc->send_join($chan_name);
         }
         return 1
     }
@@ -428,6 +431,92 @@ sub handle_cap_ack_sasl {
 sub handle_sasldone {
     my $irc = shift;
     $irc->release_login;
+}
+
+# handle WHO reply
+sub handle_whoreply {
+    
+}
+
+# handle WHOX reply.
+#
+# References:
+#   http://pastebin.com/Qychi7yE
+#   http://faerion.sourceforge.net/doc/irc/whox.var
+#   http://hg.quakenet.org/snircd/file/37c9c7460603/doc/readme.who
+#
+sub handle_whoxreply {
+    my ($irc, $id, $channel, @params) = IRC::args(@_, 'irc .source .target *id channel rest');
+
+    # fetch flags stored for this query.
+    $irc->{_whox_current_id} = $id; # TODO: delete _whox_flags{$id}
+    my $flags     = $irc->{_whox_flags}{$id} or return;
+    my @flags     = @$flags;
+    my @all_flags = qw(t c u i h s n f d l a r);
+    
+    my ($user, %info);
+    
+    # find the value of each flag.
+    foreach (@all_flags) {
+        my $flag = $_;
+        
+        # we don't have this flag or it has already been handled.
+        next unless $flag ~~ @flags;
+        next if $flag =~ m/[ct]/;
+        
+        # we do have this flag, so it's the next value of @params.
+        $info{$flag} = shift @params;
+
+    }
+    
+    # find the user.
+    return unless defined $info{n};
+    $user = $irc->new_user_from_nick($info{n}) or return;
+    
+    # user flags.
+    if (defined $info{f}) {
+        my @uflags = split //, $info{f};
+        
+        # user is no longer away.
+        if (!('H' ~~ @uflags) && defined $user->{away}) {
+            $user->set_away(undef);
+        }
+        
+        # user is now away.
+        if ('G' ~~ @uflags && !defined $user->{away}) {
+            $user->set_away('YES');
+        }
+        
+    }
+    
+    # hostname, username, realname, accountname.
+    $user->set_host($info{h})    if defined $info{h};
+    $user->set_user($info{u})    if defined $info{u};
+    $user->set_real($info{r})    if defined $info{r};
+    $user->set_account($info{a}) if defined $info{a};
+    
+    # TODO: for servers, retain for each user connected.
+    # store the server by its identifier.
+    # when the user object is destroyed, release the server.
+    # TEMPORARILY the server name is stored.
+    $user->{server} = $info{s} if defined $info{s};
+    
+    # IP address.
+    if (defined $info{i} && $info{i} ne '255.255.255.255') {
+        $user->{ip} = $info{i}; # TODO: create set_ip.
+    }
+    
+
+}
+
+# handle end of WHO list.
+sub handle_whoend {
+    my $irc = shift;
+    
+    # if it was a WHOX, delete the flags.
+    if (defined $irc->{_whox_current_id}) {
+        delete $irc->{_whox_flags}{ delete $irc->{_whox_current_id}} ;
+    }
 }
 
 1

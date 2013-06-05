@@ -68,6 +68,7 @@ sub set_nick {
 sub set_host {
     my ($user, $host) = @_;
     my $old_host  = $user->{host};
+    return if defined $host && defined $old_host && $old_host eq $host;
     $user->{host} = $host;
     $user->fire_event(hostname_changed => $old_host, $host);
 }
@@ -76,6 +77,7 @@ sub set_host {
 sub set_user {
     my ($user, $username) = @_;
     my $old_user  = $user->{user};
+    return if defined $username && defined $old_user && $old_user eq $username;
     $user->{user} = $username;
     $user->fire_event(username_changed => $old_user, $username);
 }
@@ -84,6 +86,7 @@ sub set_user {
 sub set_real {
     my ($user, $real) = @_;
     my $old_real  = $user->{real};
+    return if defined $real && defined $old_real && $old_real eq $real;
     $user->{real} = $real;
     $user->fire_event(realname_changed => $old_real, $real);
 }
@@ -92,14 +95,17 @@ sub set_real {
 sub set_account {
     my ($user, $account) = @_;
     my $old_account  = $user->{account};
+    return if defined $account && defined $old_account && $old_account eq $account;
     $user->{account} = $account;
     $user->fire_event(account_changed => $old_account, $account);
 }
 
-# set away reason
+# set away reason.
+# if we don't know the reason, use YES.
 sub set_away {
     my ($user, $reason) = @_;
     my $old_away  = $user->{away};
+    return if defined $reason && defined $old_away && $old_away eq $reason;
     $user->{away} = $reason;
     $user->fire_event(away_changed => $old_away, $reason);
     $user->fire('returned_from_away') if !defined $reason;
