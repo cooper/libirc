@@ -160,7 +160,7 @@ sub DESTROY {
 
     # if the user has a stored server, release the reference to it.
     if (defined $user->server) {
-        $user->pool->release($user->server, "user:$user:on_server");
+        $user->server->remove_user($user);
     }
 
     # if the user belongs to a pool, remove it.

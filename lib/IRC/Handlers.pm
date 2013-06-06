@@ -517,8 +517,7 @@ sub _handle_who_long {
     # when the user object is destroyed, release the server.
     if (defined $info{s} && !$user->{server}) {
         my $server = $irc->new_server_from_name($info{s});
-        $user->pool->retain($server, "user:$user:on_server");
-        $user->{server} = $server->id;
+        $server->add_user($user);
     }
     
     # IP address.

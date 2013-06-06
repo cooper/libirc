@@ -46,7 +46,7 @@ use IRC::Functions::Channel;
 use IRC::Functions::User;
 
 
-our $VERSION = '4.5';
+our $VERSION = '4.7';
 
 # create a new IRC instance
 sub new {
@@ -80,6 +80,7 @@ sub configure {
         $irc->pool->add_server($irc->{server});
         $irc->pool->retain($irc->{me}, 'me:is_me');
         $irc->pool->retain($irc->{server}, 'me:on_server');
+        $irc->{server}->add_user($irc->{me});
     }
 
     # Do we need SASL?
