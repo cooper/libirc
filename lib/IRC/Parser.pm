@@ -93,7 +93,7 @@ sub handle_data {
 # parse a piece of incoming data.
 sub parse_data_new {
     my ($irc, $data) = @_;    
-    my ($arg_i, $char_i, $got_colon, $last_char, $has_tags, $args) = (0, -1);
+    my ($arg_i, $char_i, $got_colon, $last_char, $has_tags, @args) = (0, -1);
     
     # separate the arguments.
     
@@ -129,7 +129,7 @@ sub parse_data_new {
         #
         # true if this is the first real argument (ignoring message tags)
         my $first = $has_tags ? $arg_i == 1 : $arg_i == 0;    
-        if ($char eq ':' && !$got_colon && !$first and !defined $args->[$arg_i] || !length $args->[$arg_i]) {
+        if ($char eq ':' && !$got_colon && !$first and !defined $args[$arg_i] || !length $args[$arg_i]) {
             $got_colon = 1;
             $last_char = $char;
             next;
@@ -137,19 +137,19 @@ sub parse_data_new {
         
         # any other character:
         
-        defined $args->[$arg_i] or $args->[$arg_i] = '';
-        $args->[$arg_i] .= $char;
+        defined $args[$arg_i] or $args[$arg_i] = '';
+        $args[$arg_i] .= $char;
         
         $last_char = $char;
     }
         
     # parse IRCv3.2 message tags.
-    my $tags = _parse_tags($args);    
+    my $tags = _parse_tags(\@args);    
 
     # parse source.
-    my $source = _parse_source($args);
+    my $source = _parse_source(\@args);
     
-    return ($tags, $source, @$args);
+    return ($tags, $source, @args);
 }
 
 # create a tagref.
