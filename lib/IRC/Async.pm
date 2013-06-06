@@ -59,7 +59,7 @@ sub _init {
 }
 
 sub on_read_line;
-*on_read_line = *IRC::parse_data;
+*on_read_line = *IRC::Parser::parse_data;
 
 sub configure {
     my ($self, %opts) = @_;
