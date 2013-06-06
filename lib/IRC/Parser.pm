@@ -12,7 +12,7 @@ use strict;
 use utf8;
 use 5.010;
 
-use Scalar::Util 'blessed';
+use Scalar::Util qw(blessed looks_like_number);
 
 ##################
 ### OLD PARSER ###
@@ -72,9 +72,20 @@ sub handle_data {
     my ($source, $command, @args) = $irc->parse_data_new($data);
     $command = lc $command;
     
-    $irc->fire_event(raw => $data, split(/\s/, $data)); # for anything
-    $irc->fire_event("scmd_$command" => $source, @args) if $source->{type} eq 'none';
-    $irc->fire_event("cmd_$command"  => $source, @args) if $source->{type} ne 'none';
+    # raw data.    
+    $irc->fire_event(raw => $data, split(/\s/, $data));
+    
+    # it's a numeric.
+    if (looks_like_number($command)) {
+        shift @args; # remove the target, because it will always be the client.
+        $irc->fire_event("num_$command" => $source, @args);
+    }
+    
+    # it's a command.
+    else {
+        $irc->fire_event("scmd_$command" => $source, @args) if $source->{type} eq 'none';
+        $irc->fire_event("cmd_$command"  => $source, @args) if $source->{type} ne 'none';
+    }
 }
 
 # parse a piece of incoming data.

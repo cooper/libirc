@@ -35,7 +35,7 @@ use overload
 
 use EventedObject;
 
-use Scalar::Util qw(blessed weaken);
+use Scalar::Util qw(blessed);
 
 use IRC::Pool;
 use IRC::Server;
@@ -49,7 +49,7 @@ use IRC::Functions::Server;
 use IRC::Functions::Channel;
 use IRC::Functions::User;
 
-our $VERSION = '5.1';
+our $VERSION = '5.2';
 
 # create a new IRC instance
 sub new {

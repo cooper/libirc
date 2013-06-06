@@ -13,31 +13,47 @@ use strict;
 use 5.010;
 
 my %handlers = (
-    cmd_004         => \&handle_myinfo,
-    cmd_005         => \&handle_isupport,
-    cmd_332         => \&handle_got_topic,
-    cmd_333         => \&handle_got_topic_time,
-    cmd_353         => \&handle_namesreply,
-    cmd_376         => \&handle_endofmotd,
-    cmd_422         => \&handle_endofmotd,
-    cmd_433         => \&handle_nick_taken,
-    raw_903         => \&handle_sasldone,
-    raw_904         => \&handle_sasldone,
-    raw_906         => \&handle_sasldone,
-    cmd_privmsg     => \&handle_privmsg,
-    cmd_nick        => \&handle_nick,
-    cmd_join        => \&handle_join,
-    cmd_part        => \&handle_part,
-    raw_quit        => \&handle_quit,
-    cmd_cap         => \&handle_cap,
-    cap_ls          => \&handle_cap_ls,
-    cap_ack         => \&handle_cap_ack,
-    cap_ack_sasl    => \&handle_cap_ack_sasl,
-    cmd_account     => \&handle_account,
-    cmd_away        => \&handle_away,
-    cmd_352         => \&handle_whoreply,
-    cmd_354         => \&handle_whoxreply,
-    cmd_315         => \&handle_whoend
+
+    # NUMERICS
+
+    num_004         => \&handle_myinfo,         # RPL_MYINFO:           server version and info
+    num_005         => \&handle_isupport,       # RPL_ISUPPORT:         server support information
+    num_315         => \&handle_whoend,         # RPL_ENDOFWHO:         End of WHO query
+    num_332         => \&handle_got_topic,      # RPL_TOPIC:            channel topic
+    num_333         => \&handle_got_topic_time, # RPL_TOPICWHOTIME:     topic setter and time
+    num_352         => \&handle_whoreply,       # RPL_WHOREPLY:         WHO response
+    num_353         => \&handle_namesreply,     # RPL_NAMREPLY:         channel names response
+    num_354         => \&handle_whoxreply,      # RPL_WHOSPCRPL:        WHOX response
+    num_376         => \&handle_endofmotd,      # RPL_ENDOFMOTD:        end of MOTD command
+    num_422         => \&handle_endofmotd,      # ERR_NOMOTD:           MOTD file not found
+    num_433         => \&handle_nick_taken,     # ERR_NICKNAMEINUSE:    nickname in use
+  # num_900                                     # RPL_LOGGEDIN:         client logged in
+  # num_901                                     # RPL_LOGGEDOUT:        client logged out
+    num_903         => \&handle_sasldone,       # RPL_SASLSUCCESS:      SASL successful
+    num_904         => \&handle_sasldone,       # ERR_SASLFAIL:         SASL failure
+    num_905         => \&handle_sasldone,       # ERR_SASLTOOLONG:      SASL failure
+    num_906         => \&handle_sasldone,       # ERR_SASLABORTED:      SASL aborted by client
+  # num_907                                     # ERR_SASLALREADY:      AUTHENTICATE used twice
+  # num_908                                     # RPL_SASLMECHS
+  
+    # COMMANDS
+    
+    cmd_privmsg     => \&handle_privmsg,        # PRIVMSG command
+    cmd_nick        => \&handle_nick,           # NICK command
+    cmd_join        => \&handle_join,           # JOIN command
+    cmd_part        => \&handle_part,           # PART command
+    cmd_quit        => \&handle_quit,           # QUIT command
+    cmd_cap         => \&handle_cap,            # CAP login command
+    cmd_account     => \&handle_account,        # IRCv3 ACCOUNT command
+    cmd_away        => \&handle_away,           # IRCv3 AWAY command
+    
+    
+    # OTHER EVENTS
+    
+    cap_ls          => \&handle_cap_ls,         # server listed its capabilities
+    cap_ack         => \&handle_cap_ack,        # server acknowledged some capabilities
+    cap_ack_sasl    => \&handle_cap_ack_sasl    # server acknowledged SASL
+    
 );
 
 # applies each handler to an IRC instance
@@ -56,7 +72,7 @@ sub apply_handlers {
 
 # handle RPL_ISUPPORT (005)
 sub handle_isupport {
-    my ($irc, @stuff) = IRC::args(@_, 'irc .target @stuff');
+    my ($irc, @stuff) = IRC::args(@_, 'irc @stuff');
 
     my $val;
     foreach my $support (@stuff[0..$#stuff - 1]) {
@@ -269,7 +285,7 @@ sub handle_part {
 
 # RPL_TOPIC
 sub handle_got_topic {
-    my ($channel, $topic) = IRC::args(@_, '.target channel *topic');
+    my ($channel, $topic) = IRC::args(@_, 'channel *topic');
     
     # store the topic temporarily until we get RPL_TOPICWHOTIME.
     $channel->{temp_topic} = $topic;
@@ -277,7 +293,7 @@ sub handle_got_topic {
 
 # RPL_TOPICWHOTIME
 sub handle_got_topic_time {
-    my ($channel, $setter, $settime) = IRC::args(@_, '.target channel *setter *settime');
+    my ($channel, $setter, $settime) = IRC::args(@_, 'channel *setter *settime');
 
     # set the topic.
     $channel->set_topic(delete $channel->{temp_topic}, $setter, $settime);
@@ -286,7 +302,7 @@ sub handle_got_topic_time {
 
 # RPL_NAMREPLY
 sub handle_namesreply {
-    my ($irc, $channel, @names) = IRC::args(@_, 'irc .type .target channel @names');
+    my ($irc, $channel, @names) = IRC::args(@_, 'irc .type channel @names');
 
     NICK: foreach my $nick (@names) {
 
@@ -326,15 +342,15 @@ sub handle_namesreply {
 }
 
 sub handle_nick_taken {
-    my ($irc, $nick) = IRC::args(@_, 'irc .target *nick');
+    my ($irc, $nick) = IRC::args(@_, 'irc *nick');
     $irc->fire_event(nick_taken => $nick);
 }
 
+# handle QUIT.
 sub handle_quit {
-    my ($irc, $event, $data, @args) = @_;
-    my $user   = $irc->new_user_from_string($args[0]);
-    my $reason = defined $args[2] ? IRC::Utils::col((split /\s+/, $data, 3)[2]) : undef;
-
+    my ($irc, $user, $reason) = IRC::args(@_, 'irc +source *reason') or return;
+    return unless $user->isa('IRC::User');
+    
     $user->fire_event(quit => $reason);
     $irc->pool->remove_user($user);
 }
@@ -455,7 +471,7 @@ sub handle_sasldone {
 
 # handle WHO reply
 sub handle_whoreply {
-    my ($irc, $channel, @params) = IRC::args(@_, 'irc .target channel rest');
+    my ($irc, $channel, @params) = IRC::args(@_, 'irc channel rest');
     
     # the hops is in the real name for some reason.
     if ($params[$#params] =~ m/^[0-9]/) {
@@ -476,7 +492,7 @@ sub handle_whoreply {
 #   http://hg.quakenet.org/snircd/file/37c9c7460603/doc/readme.who
 #
 sub handle_whoxreply {
-    my ($irc, $id, $channel, @params) = IRC::args(@_, 'irc .target *id channel rest');
+    my ($irc, $id, $channel, @params) = IRC::args(@_, 'irc *id channel rest');
     _handle_who_long($irc, $id, @params);
 }
 
