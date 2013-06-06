@@ -11,14 +11,23 @@ package IRC::Functions::IRC;
 use warnings;
 use strict;
 
+# Chnage nickname
 sub send_nick {
     my ($irc, $newnick) = @_;
     $irc->send("NICK $newnick");
 }
 
+# Join a channel
 sub send_join {
     my ($irc, $channel_name, $key) = @_;
     $irc->send("JOIN $channel_name".(defined $key ? q( ).$key : q()));
+}
+
+# Part a channel
+sub send_part {
+    my ($irc, $channel, $reason) = @_;
+    $channel = blessed $channel ? $channel : $irc->new_channel_from_name($channel);
+    $irc->send("PART $$channel".(defined $reason ? " :$reason" : q..));
 }
 
 # traditional WHO.
