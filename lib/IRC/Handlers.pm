@@ -397,7 +397,6 @@ sub handle_away {
 # handle SASL acknowledgement.
 sub handle_cap_ack_sasl {
     my $irc = shift;
-    
     $irc->send('AUTHENTICATE PLAIN');
     
     my $str = MIME::Base64::encode_base64(join("\0",
@@ -412,6 +411,7 @@ sub handle_cap_ack_sasl {
     }
     
     else {
+
         while (length $str >= 400) {
             my $substr = substr $str, 0, 400, '';
             $irc->send("AUTHENTICATE $substr");
@@ -422,9 +422,11 @@ sub handle_cap_ack_sasl {
         }
         
         else {
-            $irc->send("AUTHENTICATE +");
+            $irc->send('AUTHENTICATE +');
         }
+        
     }
+    
 }
 
 # Handle SASL completion
@@ -449,10 +451,10 @@ sub handle_whoxreply {
     my ($irc, $id, $channel, @params) = IRC::args(@_, 'irc .source .target *id channel rest');
 
     # fetch flags stored for this query.
-    $irc->{_whox_current_id} = $id; # TODO: delete _whox_flags{$id}
+    $irc->{_whox_current_id} = $id;
     my $flags     = $irc->{_whox_flags}{$id} or return;
     my @flags     = @$flags;
-    my @all_flags = qw(t c u i h s n f d l a r);
+    my @all_flags = qw(t c u i h s n f d l a r); # in the order they are sent
     
     my ($user, %info);
     

@@ -46,7 +46,7 @@ use IRC::Functions::Channel;
 use IRC::Functions::User;
 
 
-our $VERSION = '4.1';
+our $VERSION = '4.2';
 
 # create a new IRC instance
 sub new {
@@ -427,9 +427,9 @@ sub login {
     
 }
 
-###################################
-### FETCHING USERS AND CHANNELS ###
-###################################
+#############################################
+### FETCHING USERS, CHANNELS, AND SERVERS ###
+#############################################
 
 # return a channel from its name
 sub channel_from_name {
@@ -490,6 +490,25 @@ sub user_from_string {
     # TODO: host/ident change.
 
     return $user;
+}
+
+# return a server from its name
+sub server_from_name {
+    my ($irc, $name) = @_;
+    $name =~ s/^://;
+    return $irc->pool->get_server($name);
+}
+
+# create a new server by its name
+# or return the server if it exists
+sub new_server_from_name {
+    my ($irc, $name) = @_;
+    $name =~ s/^://;
+    return $irc->pool->get_server($name)
+    || $irc->pool->add_server( IRC::Server->new(
+        pool => $irc->pool,
+        name => $name
+    ) );
 }
 
 ##########################

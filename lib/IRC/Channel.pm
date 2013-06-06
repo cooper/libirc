@@ -176,4 +176,16 @@ sub _match {
     return;
 }
 
+sub DESTROY {
+    my $channel = shift;
+
+    # remove each user.
+    $channel->remove_user($_) foreach $channel->users;
+
+    # if the channel belongs to a pool, remove it.
+    $channel->pool->remove_channel($channel) if $channel->pool;
+    
+}
+
+
 1

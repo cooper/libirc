@@ -228,13 +228,10 @@ sub retain {
     return $refcount if $refcount != 1;
     
     # refcount has been incremented to one.
-    # store the user semi-permanently.
-
-    my $type = 'objects';
-    $type = 'users'    if $obj->isa('IRC::User');
-    $type = 'channels' if $obj->isa('IRC::Channel');
+    # store the object semi-permanently.
 
     # re-reference.
+    my $type = _type_of($obj);
     delete $pool->{$type}{$obj};
     $pool->{$type}{$obj} = $obj;
     
@@ -253,14 +250,10 @@ sub release {
     
     return $refcount if $refcount;
 
-    # users.
-    $pool->remove_user($obj) if $obj->isa('IRC::User');
-    
-    # channels.
-    if ($obj->isa('IRC::Channel')) {
-        $obj->remove_user($_) foreach $obj->users;
-        $pool->remove_channel($obj);
-    }
+    # refcount is zero.
+    # we should now weaken our reference.
+    my $type = _type_of($obj);
+    weaken($pool->{$type}{$obj});
 
     return 0;
 }
@@ -275,6 +268,15 @@ sub refcount {
 sub references {
     my ($pool, $obj) = @_;
     return @{ $pool->{comments}{$obj} || [] };
+}
+
+sub _type_of {
+    my $obj = shift;
+    my $type = 'objects';
+    $type = 'users'    if $obj->isa('IRC::User');
+    $type = 'channels' if $obj->isa('IRC::Channel');
+    $type = 'servers'  if $obj->isa('IRC::Server');
+    return $type;
 }
 
 1
