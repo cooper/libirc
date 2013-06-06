@@ -13,6 +13,7 @@ use strict;
 use 5.010;
 
 my %handlers = (
+    cmd_004         => \&handle_myinfo,
     cmd_005         => \&handle_isupport,
     cmd_332         => \&handle_got_topic,
     cmd_333         => \&handle_got_topic_time,
@@ -536,6 +537,13 @@ sub handle_whoend {
     if (defined $irc->{_whox_current_id}) {
         delete $irc->{_whox_flags}{ delete $irc->{_whox_current_id}} ;
     }
+}
+
+# RPL_MYINFO.
+sub handle_myinfo {
+    my ($irc, $event, $source) = @_;
+    $irc->pool->set_server_name($irc->server, $irc->server->{name}, $source->{name});
+    $irc->server->{name} = $source->{name};
 }
 
 1
