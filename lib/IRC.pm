@@ -46,7 +46,7 @@ use IRC::Functions::Channel;
 use IRC::Functions::User;
 
 
-our $VERSION = '4.4';
+our $VERSION = '4.5';
 
 # create a new IRC instance
 sub new {
@@ -218,7 +218,7 @@ sub parse_data_new {
 # handling arguments.
 sub args {
     my @types = split /\s/, pop;
-    my ($irc, $event, $i, $u, @args, @return, @modifiers) = __PACKAGE__;
+    my ($irc, $event, $source, $i, $u, @args, @return, @modifiers) = __PACKAGE__;
     
     # filter out IRC objects and event fire objects.
     ARG: foreach my $arg (@_) {
@@ -233,6 +233,11 @@ sub args {
                 $event = $arg;
             }
 
+            next ARG;
+            
+        } # source hashref.
+        elsif (ref $arg && ref $arg eq 'HASH' && !$source) {
+            $source = $arg;
             next ARG;
         }
         
@@ -292,14 +297,19 @@ sub args {
         # server or user.
         when ('source') {
         
+            # if we have a source object, this is incredibly easy.
+            if ($source) {
+                $return = $irc->_get_source($source);
+                $i--; # not a real IRC argument.
+            }
+        
             # if the argument is a hash reference, it's a source ref.
-            if (ref $arg && ref $arg eq 'HASH') {
+            elsif (ref $arg && ref $arg eq 'HASH') {
                 $return = $irc->_get_source($arg);
-                next TYPE;
             }
         
             # check for a user string.
-            if ($arg =~ m/^:*(.+)!(.+)\@(.+)/) {
+            elsif ($arg =~ m/^:*(.+)!(.+)\@(.+)/) {
                 my ($nick, $ident, $host) = ($1, $2, $3);
                 $return = $irc->_get_source({
                     type => 'user',
@@ -307,10 +317,15 @@ sub args {
                     user => $ident,
                     host => $host
                 });
-                next TYPE;
             }
             
-            # TODO: servers.
+            # check for a server string.
+            elsif ($arg =~ m/^:(.+)$/) {
+                $return = $irc->_get_source({
+                    type => 'server',
+                    name => $1
+                });
+            }
             
         }
         

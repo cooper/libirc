@@ -56,7 +56,7 @@ sub apply_handlers {
 
 # handle RPL_ISUPPORT (005)
 sub handle_isupport {
-    my ($irc, @stuff) = IRC::args(@_, 'irc .source .target @stuff');
+    my ($irc, @stuff) = IRC::args(@_, 'irc .target @stuff');
 
     my $val;
     foreach my $support (@stuff[0..$#stuff - 1]) {
@@ -248,7 +248,7 @@ sub handle_part {
 
 # RPL_TOPIC
 sub handle_got_topic {
-    my ($channel, $topic) = IRC::args(@_, '.source .target channel *topic');
+    my ($channel, $topic) = IRC::args(@_, '.target channel *topic');
     
     # store the topic temporarily until we get RPL_TOPICWHOTIME.
     $channel->{temp_topic} = $topic;
@@ -256,7 +256,7 @@ sub handle_got_topic {
 
 # RPL_TOPICWHOTIME
 sub handle_got_topic_time {
-    my ($channel, $setter, $settime) = IRC::args(@_, '.source .target channel *setter *settime');
+    my ($channel, $setter, $settime) = IRC::args(@_, '.target channel *setter *settime');
 
     # set the topic.
     $channel->set_topic(delete $channel->{temp_topic}, $setter, $settime);
@@ -265,7 +265,7 @@ sub handle_got_topic_time {
 
 # RPL_NAMREPLY
 sub handle_namesreply {
-    my ($irc, $channel, @names) = IRC::args(@_, 'irc .source .type .target channel @names');
+    my ($irc, $channel, @names) = IRC::args(@_, 'irc .type .target channel @names');
     
     # get a hash of prefixes.
     my %prefixes;
@@ -310,8 +310,7 @@ sub handle_namesreply {
 }
 
 sub handle_nick_taken {
-    my ($irc, $nick) = IRC::args(@_, 'irc . . *');
-    print "nick tkaen: $nick\n";
+    my ($irc, $nick) = IRC::args(@_, 'irc .target *nick');
     $irc->fire_event(nick_taken => $nick);
 }
 
@@ -326,7 +325,7 @@ sub handle_quit {
 
 # Handle CAP
 sub handle_cap {
-    my ($irc, $subcommand, @params) = IRC::args(@_, 'irc .server .target *sub @caps');
+    my ($irc, $subcommand, @params) = IRC::args(@_, 'irc .target *sub @caps');
     $subcommand = lc $subcommand;
     $irc->fire_event("cap_$subcommand" => @params);
 }
@@ -438,7 +437,7 @@ sub handle_sasldone {
 
 # handle WHO reply
 sub handle_whoreply {
-    my ($irc, $channel, @params) = IRC::args(@_, 'irc .source .target channel rest');
+    my ($irc, $channel, @params) = IRC::args(@_, 'irc .target channel rest');
     
     # the hops is in the real name for some reason.
     if ($params[$#params] =~ m/^[0-9]/) {
@@ -459,7 +458,7 @@ sub handle_whoreply {
 #   http://hg.quakenet.org/snircd/file/37c9c7460603/doc/readme.who
 #
 sub handle_whoxreply {
-    my ($irc, $id, $channel, @params) = IRC::args(@_, 'irc .source .target *id channel rest');
+    my ($irc, $id, $channel, @params) = IRC::args(@_, 'irc .target *id channel rest');
     _handle_who_long($irc, $id, @params);
 }
 
