@@ -58,6 +58,14 @@ sub _match {
     return;
 }
 
+sub users { }
+
+sub has_user { }
+
+sub add_user { }
+
+sub remove_user { }
+
 sub DESTROY {
     my $server = shift;
 

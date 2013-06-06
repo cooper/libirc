@@ -28,10 +28,10 @@ sub irc { shift->{irc} }
 # get server by ID or name.
 sub get_server {
     my ($pool, $id_or_name) = @_;
-    return $pool->{servers}{$id_or_name}                ||
-    exists $pool->{snames}{lc $id_or_name}              ?
-    $pool->{servers}{ $pool->{snames}{lc $id_or_name} } :
-    undef;
+    return unless defined $id_or_name;
+    return $pool->{servers}{$id_or_name} if defined $pool->{servers}{$id_or_name};
+    return defined $pool->{snames}{lc $id_or_name}      ?
+    $pool->{servers}{ $pool->{snames}{lc $id_or_name} } : undef;
 }
 
 # add a server to the pool.
@@ -141,10 +141,9 @@ sub remove_channel {
 # user's nickname, and a user with that nickname will be returned.
 sub get_user {
     my ($pool, $id_or_nick) = @_;
-    return $pool->{users}{$id_or_nick}               ||
-    exists $pool->{nicks}{lc $id_or_nick}            ?
-    $pool->{users}{ $pool->{nicks}{lc $id_or_nick} } :
-    undef;
+    return $pool->{users}{$id_or_nick} if defined $pool->{users}{$id_or_nick};
+    return defined $pool->{nicks}{lc $id_or_nick}    ?
+    $pool->{users}{ $pool->{nicks}{lc $id_or_nick} } : undef;
 }
 
 # add a user to the pool.

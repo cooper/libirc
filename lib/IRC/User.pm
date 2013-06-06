@@ -125,9 +125,10 @@ sub in_common {
     return;
 }
 
-sub id   { shift->{id}      }
-sub irc  { shift->pool->irc }
-sub pool { shift->{pool}    }
+sub id     { shift->{id}      }
+sub irc    { shift->pool->irc }
+sub pool   { shift->{pool}    }
+sub server { $_[0]->pool->get_server($_[0]->{server}) }
 
 # smart matching
 sub _match {
@@ -156,6 +157,11 @@ sub _match {
 
 sub DESTROY {
     my $user = shift;
+
+    # if the user has a stored server, release the reference to it.
+    if (defined $user->server) {
+        $user->pool->release($user->server, "user:$user:on_server");
+    }
 
     # if the user belongs to a pool, remove it.
     $user->pool->remove_user($user) if $user->pool;

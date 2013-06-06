@@ -437,6 +437,16 @@ sub handle_sasldone {
 
 # handle WHO reply
 sub handle_whoreply {
+    my ($irc, $channel, @params) = IRC::args(@_, 'irc .source .target channel rest');
+    
+    # the hops is in the real name for some reason.
+    if ($params[$#params] =~ m/^[0-9]/) {
+        $params[$#params] = (split ' ', $params[$#params], 2)[1];
+    }
+    
+    # fake a -1 WHOX.
+    $irc->{_whox_flags}{-1} = [qw(u h s n f r)];
+    _handle_who_long($irc, -1, @params);
     
 }
 
@@ -449,7 +459,12 @@ sub handle_whoreply {
 #
 sub handle_whoxreply {
     my ($irc, $id, $channel, @params) = IRC::args(@_, 'irc .source .target *id channel rest');
+    _handle_who_long($irc, $id, @params);
+}
 
+sub _handle_who_long {
+    my ($irc, $id, @params) = @_;
+    
     # fetch flags stored for this query.
     $irc->{_whox_current_id} = $id;
     my $flags     = $irc->{_whox_flags}{$id} or return;
@@ -500,15 +515,17 @@ sub handle_whoxreply {
     # TODO: for servers, retain for each user connected.
     # store the server by its identifier.
     # when the user object is destroyed, release the server.
-    # TEMPORARILY the server name is stored.
-    $user->{server} = $info{s} if defined $info{s};
+    if (defined $info{s} && !$user->{server}) {
+        my $server = $irc->new_server_from_name($info{s});
+        $user->pool->retain($server, "user:$user:on_server");
+        $user->{server} = $server->id;
+    }
     
     # IP address.
     if (defined $info{i} && $info{i} ne '255.255.255.255') {
         $user->{ip} = $info{i}; # TODO: create set_ip.
     }
     
-
 }
 
 # handle end of WHO list.
