@@ -15,6 +15,7 @@ package IRC;
 #   [ ] create a class for manging multiple IRC servers
 #   [x] make users and channels independent of IRC objects with ->add_*, ->remove_*, etc.
 #   [ ] create a proper MODE handler
+#   [ ] add feature to argument parser for type parameters such as source(u)
 #
 
 use warnings;
@@ -47,7 +48,7 @@ use IRC::Functions::Channel;
 use IRC::Functions::User;
 
 
-our $VERSION = '4.9';
+our $VERSION = '5.0';
 
 # create a new IRC instance
 sub new {

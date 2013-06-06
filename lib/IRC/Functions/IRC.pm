@@ -19,17 +19,6 @@ sub send_nick {
 sub send_join {
     my ($irc, $channel_name, $key) = @_;
     $irc->send("JOIN $channel_name".(defined $key ? q( ).$key : q()));
-    
-    # send WHOX.
-    if ($irc->server->support('whox')) {
-        $irc->send_whox($channel_name, 'cdfhilnrstua');
-    }
-    
-    # send WHO.
-    else {
-        $irc->send_who($channel_name);
-    }
-    
 }
 
 # traditional WHO.

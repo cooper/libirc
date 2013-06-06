@@ -132,6 +132,7 @@ sub remove_channel {
 # user's nickname, and a user with that nickname will be returned.
 sub get_user {
     my ($pool, $id_or_nick) = @_;
+    return unless defined $id_or_nick;
     return $pool->{users}{$id_or_nick} if defined $pool->{users}{$id_or_nick};
     return defined $pool->{nicks}{lc $id_or_nick}    ?
     $pool->{users}{ $pool->{nicks}{lc $id_or_nick} } : undef;

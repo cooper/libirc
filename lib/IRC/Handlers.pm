@@ -207,20 +207,22 @@ sub handle_privmsg { # :source PRIVMSG target message
 # handle a nick change
 # :user NICK new_nick
 sub handle_nick {
-    my ($user, $nick) = IRC::args(@_, '+user *nick') or return;
+    my ($user, $nick) = IRC::args(@_, '+source *nick') or return;
+    return unless $user->isa('IRC::User');
     $user->set_nick($nick);
 }
 
 # user joins a channel
 sub handle_join {
     my ($irc, $user, $channel, $account, $realname) =
-    IRC::args(@_, 'irc +user +channel *acct *real') or return;
+    IRC::args(@_, 'irc +source +channel *acct *real') or return;
+    return unless $user->isa('IRC::User');
     
     # add user to channel.
     $channel->add_user($user);
     
     # extended join.
-    if ($irc->cap_enabled('extended-join')) {
+    if ($irc->server->cap_enabled('extended-join')) {
         $user->set_account($account eq '*' ? undef : $account) if ($user->{account} || '*') ne $account;
         $user->set_real($realname);
     }
@@ -231,12 +233,28 @@ sub handle_join {
         [ $channel, user_joined    => $user    ]
     );
     
+    # if the user is me, send WHO.
+    if ($user == $irc->{me}) {
+    
+        # send WHOX.
+        if ($irc->server->support('whox')) {
+            $irc->send_whox($channel->{name}, 'cdfhilnrstua');
+        }
+        
+        # send WHO.
+        else {
+            $irc->send_who($channel->{name});
+        }
+        
+    }
+    
 }
 
 # user parts a channel
 sub handle_part {
     my ($irc, $user, $channel, $reason) =
-    IRC::args(@_, 'irc +user +channel *reason') or return;
+    IRC::args(@_, 'irc +source +channel *reason') or return;
+    return unless $user->isa('IRC::User');
 
     # remove the user.
     $channel->remove_user($user);
@@ -382,13 +400,15 @@ sub handle_cap_ack {
 
 # Handle ACCOUNT
 sub handle_account {
-    my ($user, $account) = IRC::args(@_, '+user *account') or return;
+    my ($user, $account) = IRC::args(@_, '+source *account') or return;
+    return unless $user->isa('IRC::User');
     $user->set_account($account eq '*' ? undef : $account);
 }
 
 # handle AWAY
 sub handle_away {
-    my ($user, $reason) = IRC::args(@_, '+user *reason') or return;
+    my ($user, $reason) = IRC::args(@_, '+source *reason') or return;
+    return unless $user->isa('IRC::User');
     $user->set_away($reason);
 }
 
