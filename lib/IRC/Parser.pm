@@ -71,7 +71,7 @@ sub handle_data {
     }
     
     # parse the data.
-    my ($source, $command, @args) = $irc->parse_data_new($data);
+    my ($tags, $source, $command, @args) = $irc->parse_data_new($data);
     $command = lc $command;
     
     # raw data.    
@@ -80,63 +80,118 @@ sub handle_data {
     # it's a numeric.
     if (looks_like_number($command)) {
         shift @args; # remove the target, because it will always be the client.
-        $irc->fire_event("num_$command" => $source, @args);
+        $irc->fire_event("num_$command" => $tags, $source, @args);
     }
     
     # it's a command.
     else {
-        $irc->fire_event("scmd_$command" => $source, @args) if $source->{type} eq 'none';
-        $irc->fire_event("cmd_$command"  => $source, @args) if $source->{type} ne 'none';
+        $irc->fire_event("scmd_$command" => $tags,          @args) if $source->{type} eq 'none';
+        $irc->fire_event("cmd_$command"  => $tags, $source, @args) if $source->{type} ne 'none';
     }
 }
 
 # parse a piece of incoming data.
 sub parse_data_new {
     my ($irc, $data) = @_;    
-    my ($arg_i, $char_i, $got_colon, $last_char, $source, @args) = (0, -1);
+    my ($arg_i, $char_i, $got_colon, $last_char, $has_tags, $args) = (0, -1);
     
     # separate the arguments.
     
     foreach my $char (split //, $data) {
         $char_i++;
         
+        # at sign:
+        #
+        # this is the start of message tags.
+        # this is used to determine where the source is.
+        # we need to know that so we know if the colon belongs to the source
+        # or if it marks the start of a trailing parameter.
+        if ($char eq '@' && !$char_i) {
+            $has_tags = 1;
+        }
+        
         # whitespace:
+        #
         # if the last character is not whitespace
         # and we have not received the colon.
         if ($char =~ m/\s/ && !$got_colon) { 
-            next if $last_char =~ m/\s/;
+            next if defined $last_char && $last_char =~ m/\s/;
             $arg_i++;
             $last_char = $char;
             next;
         }
         
         # colon:
+        #
         # if we haven't already received a colon
-        # and this isn't the first character (that would be a source)
-        # and we're not in the middle of an argument
-        if ($char eq ':' && !$got_colon && $char_i and !defined $args[$arg_i] || !length $args[$arg_i]) {
+        # and this isn't the first arg (that would be a source)
+        # and we're not in the middle of an argument.
+        #
+        # true if this is the first real argument (ignoring message tags)
+        my $first = $has_tags ? $arg_i == 1 : $arg_i == 0;    
+        if ($char eq ':' && !$got_colon && !$first and !defined $args->[$arg_i] || !length $args->[$arg_i]) {
             $got_colon = 1;
             $last_char = $char;
             next;
         }
         
-        # any other character.
-        defined $args[$arg_i] or $args[$arg_i] = '';
-        $args[$arg_i] .= $char;
+        # any other character:
+        
+        defined $args->[$arg_i] or $args->[$arg_i] = '';
+        $args->[$arg_i] .= $char;
         
         $last_char = $char;
     }
+        
+    # parse IRCv3.2 message tags.
+    my $tags = _parse_tags($args);    
+
+    # parse source.
+    my $source = _parse_source($args);
     
-    # determine the source.
+    return ($tags, $source, @$args);
+}
+
+# create a tagref.
+sub _parse_tags {
+    my ($args, %tags) = shift;
+    
+    # no tags.
+    return { IS_TAGS => 1 } unless $args->[0] =~ m/^@(.+)$/;
+    
+    # there are tags, so remove them from @args.
+    my $tag_string = $1;
+    shift @$args;
+    
+    # separate each tag and value.
+    #
+    # <key>   ::= [ <vendor> '/' ] <sequence of letters, digits, hyphens (`-`)>
+    # <value> ::= <sequence of any characters except NUL, BELL, CR, LF, semicolon (`;`) and SPACE>
+    # the specification does not mention the equal sign, so we will assume that the first
+    #
+    # equal sign indicates the start of the value, and all following are part of the value.
+    #
+    foreach my $tag_and_value (split /;/, $tag_string) {
+        my ($tag, $value) = split /=/, $tag_and_value, 2;
+        $tags{$tag} = defined $value ? $value : 1;
+    }
+    
+    $tags{IS_TAGS} = 1;
+    return \%tags;
+}
+
+# create a sourceref.
+sub _parse_source {
+    my ($args, $source) = shift;
     
     # if it doesn't start with a colon, no source.
-    if ($args[0] !~ m/^:/) {
+    if ($args->[0] !~ m/^:/) {
         $source = { type => 'none' };
     }
     
     # it's a user.
-    elsif ($args[0] =~ m/^:(.+)!(.+)@(.+)/) {
-        shift @args;
+    elsif ($args->[0] =~ m/^:(.+)!(.+)@(.+)/) {
+        shift @$args;
         $source = {
             type => 'user',
             nick => $1,
@@ -146,15 +201,16 @@ sub parse_data_new {
     }
     
     # it must be a server.
-    elsif ($args[0] =~ m/^:(.+)/) {
-        shift @args;
+    elsif ($args->[0] =~ m/^:(.+)/) {
+        shift @$args;
         $source = {
             type => 'server',
             name => $1
         };
     }
     
-    return ($source, @args);
+    $source->{IS_SOURCE} = 1;
+    return $source;
 }
 
 ###########################
@@ -164,7 +220,7 @@ sub parse_data_new {
 # handling arguments.
 sub args {
     my @types = split /\s/, pop;
-    my ($irc, $event, $source, $i, $u, @args, @return, @modifiers) = __PACKAGE__;
+    my ($irc, $event, $tags, $source, $i, $u, @args, @return, @modifiers) = __PACKAGE__;
     
     # filter out IRC objects and event fire objects.
     ARG: foreach my $arg (@_) {
@@ -181,9 +237,10 @@ sub args {
 
             next ARG;
             
-        } # source hashref.
-        elsif (ref $arg && ref $arg eq 'HASH' && !$source) {
-            $source = $arg;
+        } # hashref.
+        elsif (ref $arg && ref $arg eq 'HASH') {
+            $source = $arg if $arg->{IS_SOURCE};
+            $tags   = $arg if $arg->{IS_TAGS};
             next ARG;
         }
         
@@ -240,6 +297,12 @@ sub args {
             $i--; # these are not actually IRC arguments.
         }
         
+        # message tags.
+        when ('tags') {
+            $return = $tags;
+            $i--; # these are not actually IRC arguments.
+        }
+        
         # server or user.
         when ('source') {
         
@@ -249,9 +312,9 @@ sub args {
                 $i--; # not a real IRC argument.
             }
         
-            # if the argument is a hash reference, it's a source ref.
+            # source hash passed.
             elsif (ref $arg && ref $arg eq 'HASH') {
-                $return = $irc->_get_source($arg);
+                $return = $irc->_get_source($arg) if $arg->{IS_SOURCE};
             }
         
             # check for a user string.

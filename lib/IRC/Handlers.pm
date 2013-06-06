@@ -370,7 +370,8 @@ sub handle_quit {
 
 # Handle CAP
 sub handle_cap {
-    my ($irc, $subcommand, @params) = IRC::args(@_, 'irc .target *sub @caps');
+    my ($irc, $subcommand, @params) = IRC::args(@_, 'irc .target *subcmd @caps');
+    
     $subcommand = lc $subcommand;
     $irc->fire_event("cap_$subcommand" => @params);
 }
