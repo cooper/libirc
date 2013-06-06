@@ -59,7 +59,7 @@ sub _init {
 }
 
 sub on_read_line;
-*on_read_line = *IRC::Parser::parse_data;
+*on_read_line = *IRC::Parser::handle_data;
 
 sub configure {
     my ($self, %opts) = @_;
@@ -76,7 +76,12 @@ sub configure {
         $opts{read_handle}  = $sock;
     }
     
-    foreach my $key (qw|host port nick user real pass sasl_user sasl_pass|) {
+    # remove libirc options.
+    state $keys = [qw(
+        host port nick user real pass sasl_user
+        sasl_pass enable_raw_events
+    )];
+    foreach my $key (@$keys) {
         defined(my $val = delete $opts{$key}) or next;
         $self->{$key} = $val;
     }

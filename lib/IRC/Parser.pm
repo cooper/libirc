@@ -23,7 +23,6 @@ use Scalar::Util qw(blessed looks_like_number);
 # and remains here temporarily for compatibility only.
 sub parse_data {
     my ($irc, $data) = @_;
-    $irc->handle_data($data);
     
     $data =~ s/\0|\r//g; # remove unwanted characters
 
@@ -58,6 +57,9 @@ sub parse_data {
 # handle a piece of incoming data.
 sub handle_data {
     my ($irc, $data) = @_;
+    
+    # fire old parser if requested.
+    $irc->parse_data($data) if $irc->{enable_raw_events};
     
     # strip unwanted characters
     $data =~ s/\0|\r//g;
