@@ -71,7 +71,9 @@ sub handle_isupport {
         # fire an event saying that we got the support string
         # for example, to update the network name when NETWORK is received.
         $irc->fire_event('isupport_got_'.lc($support), $val);
-        $irc->{ircd}{support}{lc $support} = $val;
+        
+        # set this support value.
+        $irc->server->set_support($support, $val);
 
       given (uc $support) {
 
@@ -83,7 +85,8 @@ sub handle_isupport {
         when ('PREFIX') {
             # prefixes are stored in $irc->{ircd}{prefix}{<status level>}
             # and their value is an array reference of [symbol, mode letter]
-
+            # update[6 June 2013]: IRC::Server is responsible for managing prefixes.
+            #
             # it's hard to support so many different prefixes
             # because we want pixmaps to match up on different networks.
             # the main idea is that if we can find an @, use it as 0
@@ -134,7 +137,7 @@ sub handle_isupport {
             # store
             my ($i, @modes) = (0, split(//, $modes));
             foreach my $level (reverse sort { $a <=> $b } keys %final) {
-                $irc->{ircd}{prefix}{$level} = [ $final{$level}, $modes[$i] ];
+                $irc->server->set_prefix($level, $final{$level}, $modes[$i]);
                 $i++
             }
 
@@ -266,12 +269,6 @@ sub handle_got_topic_time {
 # RPL_NAMREPLY
 sub handle_namesreply {
     my ($irc, $channel, @names) = IRC::args(@_, 'irc .type .target channel @names');
-    
-    # get a hash of prefixes.
-    my %prefixes;
-    foreach my $level (keys %{ $irc->{ircd}{prefix} }) {
-        $prefixes{ $irc->{ircd}{prefix}{$level}[0] } = $level
-    }
 
     NICK: foreach my $nick (@names) {
 
@@ -279,18 +276,19 @@ sub handle_namesreply {
         my @levels;
 
         LETTER: foreach my $letter (split //, $nick) {
-
+            
             # is it a prefix?
-            if (exists $prefixes{$letter}) {
-                $nick =~ s/.//;
+            if (defined(my $level = $irc->server->prefix_to_level($letter))) {
+                $nick =~ s/.{1}//;
 
-                # add to the levels to apply
-                push @levels, $prefixes{$letter}
+                # add to the levels to apply.
+                push @levels, $level;
+                
             }
 
-            # not a prefix
+            # not a prefix.
             else {
-                last LETTER
+                last LETTER;
             }
 
         }
@@ -333,7 +331,7 @@ sub handle_cap {
 # handle CAP LS.
 sub handle_cap_ls {
     my ($irc, @params) = @_;
-    $irc->{ircd}{cap}{lc $_} = 1 foreach @params;
+    $irc->server->set_cap_available($_) foreach @params;
     $irc->_send_cap_requests;
 }
 
@@ -512,10 +510,8 @@ sub _handle_who_long {
     $user->set_real($info{r})    if defined $info{r};
     $user->set_account($info{a}) if defined $info{a};
     
-    # TODO: for servers, retain for each user connected.
-    # store the server by its identifier.
-    # when the user object is destroyed, release the server.
-    if (defined $info{s} && !$user->{server}) {
+    # server.
+    if (defined $info{s} && !$user->server) {
         my $server = $irc->new_server_from_name($info{s});
         $server->add_user($user);
     }

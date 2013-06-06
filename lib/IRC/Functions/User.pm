@@ -14,19 +14,19 @@ use strict;
 sub send_privmsg {
     my ($user, $msg) = @_;
     $user->fire_event(send_privmsg => $msg);
-    $user->{irc}->send("PRIVMSG $$user :$msg");
+    $user->irc->send("PRIVMSG $$user :$msg");
 }
 
 sub send_notice {
     my ($user, $msg) = @_;
     $user->fire_event(send_notice => $msg);
-    $user->{irc}->send("NOTICE $$user :$msg");
+    $user->irc->send("NOTICE $$user :$msg");
 }
 
 sub send_invite {
     my ($user, $channel) = @_;
     $user->fire_event(send_invite => $channel);
-    $user->{irc}->send("INVITE $$user $$channel");
+    $user->irc->send("INVITE $$user $$channel");
 }
 
 1

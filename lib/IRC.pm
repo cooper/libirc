@@ -9,11 +9,12 @@ package IRC;
 
 # TODO LIST:
 #
-#   [ ] use a consistent structure for storing ircd-related information in an IRC object
-#   [ ] make methods to fetch server capability information from RPL_ISUPPORT
+#   [x] use a consistent structure for storing ircd-related information in an IRC object
+#   [x] make methods to fetch server capability information from RPL_ISUPPORT
 #   [ ] make preset channel status levels for voice and halfop
 #   [ ] create a class for manging multiple IRC servers
-#   [ ] make users and channels independent of IRC objects with ->add_*, ->remove_*, etc.
+#   [x] make users and channels independent of IRC objects with ->add_*, ->remove_*, etc.
+#   [ ] create a proper MODE handler
 #
 
 use warnings;
@@ -46,7 +47,7 @@ use IRC::Functions::Channel;
 use IRC::Functions::User;
 
 
-our $VERSION = '4.7';
+our $VERSION = '4.8';
 
 # create a new IRC instance
 sub new {
@@ -531,18 +532,6 @@ sub new_server_from_name {
 ### IRCv3 CAPABILITIES ###
 ##########################
 
-# determine if the ircd we're connected to suppots a particular capability.
-sub has_cap {
-    my ($irc, $cap) = @_;
-    return $irc->{ircd}{cap}{lc $cap};
-}
-
-# determine if we have told the server we want a CAP, and the server is okay with it.
-sub cap_enabled {
-    my ($irc, $cap) = @_;
-    return $irc->{active_cap}{lc $cap};
-}
-
 # request a CAP.
 sub cap_request {
     my ($irc, $cap, $wait) = @_;
@@ -582,7 +571,7 @@ sub _send_cap_requests {
     my $irc = shift;
     return unless $irc->{pending_cap};
     $irc->send('CAP REQ :'.join(' ',
-        grep { exists $irc->{ircd}{cap}{$_} } @{ $irc->{pending_cap} }
+        grep { $irc->server->has_cap($_) } @{ $irc->{pending_cap} }
     ));
 }
 

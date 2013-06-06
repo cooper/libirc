@@ -50,11 +50,7 @@ sub add_server {
     
     # reference to the pool.
     $server->{pool} = $pool;
-    
-    # weakly reference to the IRC object.
-    # this is very silly, but it still here for compatibility.
-    weaken($server->{irc} = $pool->irc);
-    
+        
     # store the server name.
     $pool->{snames}{ lc $server->{name} } = $id;
     
@@ -114,11 +110,6 @@ sub add_channel {
     # reference to the pool.
     $channel->{pool} = $pool;
     
-    # weakly reference to the IRC object.
-    # this is very silly, but it still here for compatibility.
-    $channel->{irc} = $pool->irc;
-    weaken($channel->{irc});
-    
     # make the IRC object a listener.
     $channel->add_listener($pool->irc, 'channel');
 
@@ -162,11 +153,6 @@ sub add_user {
     
     # reference to the pool.
     $user->{pool} = $pool;
-    
-    # weakly reference to the IRC object.
-    # this is very silly, but it still here for compatibility.
-    $user->{irc} = $pool->irc;
-    weaken($user->{irc});
     
     # store the nickname.
     $pool->{nicks}{ lc $user->{nick} } = $id;

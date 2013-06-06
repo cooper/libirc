@@ -149,7 +149,7 @@ sub _match {
     
     # for IRC objects, check if the user belongs to that server.
     if ($other->isa('IRC')) {
-        return $other == $user->{irc};
+        return $other == $user->irc;
     }
     
     return;
