@@ -47,7 +47,7 @@ use IRC::Functions::Channel;
 use IRC::Functions::User;
 
 
-our $VERSION = '4.8';
+our $VERSION = '4.9';
 
 # create a new IRC instance
 sub new {
@@ -435,11 +435,11 @@ sub login {
     $irc->send("USER $ident * * :$real");
     
     $irc->{supported_cap} = [qw(sasl extended-join multi-prefix account-notify away-notify)];
-    $irc->cap_request($_) foreach qw(extended-join multi-prefix account-notify away-notify);
+    $irc->send_cap_request($_) foreach qw(extended-join multi-prefix account-notify away-notify);
     
     # SASL authentication.
     if ($irc->{sasl_user} && defined $irc->{sasl_pass}) {
-        $irc->cap_request('sasl', 1);
+        $irc->send_cap_request('sasl', 1);
     }
     
 }
@@ -533,10 +533,14 @@ sub new_server_from_name {
 ##########################
 
 # request a CAP.
-sub cap_request {
+# if the capability requires additional registration commands
+# (SASL, for example, requires authentication to complete),
+# it should pass 1 as the third argument and call $irc->continue_login()
+# when that registration extension is complete.
+sub send_cap_request {
     my ($irc, $cap, $wait) = @_;
     if ($wait) {
-        $irc->retain_login;
+        $irc->wait_login;
         $irc->{waiting_cap}{lc $cap} = 1;
     }
     $irc->{pending_cap} ||= [];
@@ -544,7 +548,7 @@ sub cap_request {
 }
 
 # add a wait during login.
-sub retain_login {
+sub wait_login {
     my $irc = shift;
     $irc->{login_refcount} ||= 0;
     $irc->{login_refcount}++;
@@ -552,7 +556,7 @@ sub retain_login {
 }
 
 # release a wait during login.
-sub release_login {
+sub continue_login {
     my $irc = shift;
     $irc->{login_refcount} ||= 0;
     $irc->{login_refcount}--;

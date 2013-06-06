@@ -369,7 +369,7 @@ sub handle_cap_ack {
         next if $event_fired{$cap};
         
         # release this one because it's not available.
-        $irc->release_login if $irc->{waiting_cap}{lc $cap};
+        $irc->continue_login if $irc->{waiting_cap}{lc $cap};
         
         $irc->fire_event(cap_no_ack => $cap);
         $irc->fire_event("cap_no_ack_$cap");
@@ -430,7 +430,7 @@ sub handle_cap_ack_sasl {
 # Handle SASL completion
 sub handle_sasldone {
     my $irc = shift;
-    $irc->release_login;
+    $irc->continue_login;
 }
 
 # handle WHO reply
