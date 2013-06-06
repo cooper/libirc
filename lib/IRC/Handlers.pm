@@ -27,14 +27,18 @@ my %handlers = (
     num_376         => \&handle_endofmotd,      # RPL_ENDOFMOTD:        end of MOTD command
     num_422         => \&handle_endofmotd,      # ERR_NOMOTD:           MOTD file not found
     num_433         => \&handle_nick_taken,     # ERR_NICKNAMEINUSE:    nickname in use
-  # num_900                                     # RPL_LOGGEDIN:         client logged in
-  # num_901                                     # RPL_LOGGEDOUT:        client logged out
+    num_900         => \&handle_loggedin,       # RPL_LOGGEDIN:         client logged in
+    num_901         => \&handle_loggedout,      # RPL_LOGGEDOUT:        client logged out
     num_903         => \&handle_sasldone,       # RPL_SASLSUCCESS:      SASL successful
     num_904         => \&handle_sasldone,       # ERR_SASLFAIL:         SASL failure
     num_905         => \&handle_sasldone,       # ERR_SASLTOOLONG:      SASL failure
     num_906         => \&handle_sasldone,       # ERR_SASLABORTED:      SASL aborted by client
   # num_907                                     # ERR_SASLALREADY:      AUTHENTICATE used twice
   # num_908                                     # RPL_SASLMECHS
+  
+    # SPECIAL COMMANDS
+    
+    scmd_ping       => \&handle_ping,           # PING command
   
     # COMMANDS
     
@@ -56,7 +60,7 @@ my %handlers = (
     
 );
 
-# applies each handler to an IRC instance
+# applies each handler to an IRC instance.
 sub apply_handlers {
     my $irc = shift;
     
@@ -68,6 +72,12 @@ sub apply_handlers {
     ) foreach keys %handlers;
     
     return 1;
+}
+
+# PING from server.
+sub handle_ping {
+    my ($irc, $response) = IRC::args(@_, 'irc *response');
+    $irc->send("PONG :$response");
 }
 
 # handle RPL_ISUPPORT (005)
@@ -196,22 +206,25 @@ sub handle_isupport {
     return 1
 }
 
+# End of MOTD or MOTD file not found
 sub handle_endofmotd {
     my $irc = shift;
-    if ($irc->{autojoin} && ref $irc->{autojoin} eq 'ARRAY') {
+    if ($irc->{autojoin} && ref $irc->{autojoin} eq 'ARRAY' && !$irc->{_joined_auto}) {
         foreach my $chan_name (@{$irc->{autojoin}}) {
             $irc->send_join($chan_name);
         }
-        return 1
+        $irc->{_joined_auto} = 1;
+        return 1;
     }
     $irc->fire_event('end_of_motd');
-    return
+    return;
 }
 
-sub handle_privmsg { # :source PRIVMSG target message
+# PRIVMSG command
+sub handle_privmsg {
     my ($irc, $source, $target, $msg) = IRC::args(@_, 'irc +source +target *msg') or return;
 
-    # fire events
+    # fire events.
     EventedObject::fire_events_together(
         [ $irc,    privmsg     => $source, $target, $msg ], # generic privmsg for any source or target
         [ $target, got_privmsg => $source, $msg          ], # incoming from source
@@ -469,7 +482,7 @@ sub handle_sasldone {
     $irc->continue_login;
 }
 
-# handle WHO reply
+# handle WHO reply.
 sub handle_whoreply {
     my ($irc, $channel, @params) = IRC::args(@_, 'irc channel rest');
     
@@ -496,6 +509,7 @@ sub handle_whoxreply {
     _handle_who_long($irc, $id, @params);
 }
 
+# the real WHO and WHOX handler.
 sub _handle_who_long {
     my ($irc, $id, @params) = @_;
     
@@ -544,7 +558,7 @@ sub _handle_who_long {
     $user->set_host($info{h})    if defined $info{h};
     $user->set_user($info{u})    if defined $info{u};
     $user->set_real($info{r})    if defined $info{r};
-    $user->set_account($info{a}) if defined $info{a};
+    $user->set_account($info{a}) if defined $info{a} && $info{a} ne '0';
     
     # server.
     if (defined $info{s} && !$user->server) {
@@ -574,6 +588,18 @@ sub handle_myinfo {
     my ($irc, $event, $source) = @_;
     $irc->pool->set_server_name($irc->server, $irc->server->{name}, $source->{name});
     $irc->server->{name} = $source->{name};
+}
+
+# the client logged in.
+sub handle_loggedin {
+    my ($irc, $account) = IRC::args(@_, 'irc *account');
+    $irc->{me}->set_account($account);
+}
+
+# the client logged out.
+sub handle_loggedout {
+    my $irc = shift;
+    $irc->{me}->set_account(undef);
 }
 
 1

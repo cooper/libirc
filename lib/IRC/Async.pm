@@ -83,7 +83,7 @@ sub configure {
     )];
     foreach my $key (@$keys) {
         defined(my $val = delete $opts{$key}) or next;
-        $self->{$key} = $val;
+        $self->{$key}   = $val;
     }
     
     $self->SUPER::configure(%opts);
