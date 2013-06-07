@@ -23,17 +23,17 @@ sub send_notice {
 
 sub send_topic {
     my ($channel, $msg) = @_;
-    $channel->irc->send("TOPIC $$channel :$msg");
+    $channel->irc->send_topic($channel, $msg);
 }
 
 sub send_kick {
     my ($channel, $user, $reason) = @_;
-    $channel->irc->send("KICK $$channel ".$$user.(defined $reason ? " :$reason" : q..));
+    $channel->irc->send_kick($channel, $user, $reason);
 }
 
 sub send_invite {
     my ($channel, $user) = @_;
-    $channel->irc->send("INVITE $$user $$channel");
+    $channel->irc->send_invite($user, $channel);
 }
 
 sub send_part {

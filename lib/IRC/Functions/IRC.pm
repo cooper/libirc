@@ -71,4 +71,29 @@ sub send_notice {
     $irc->send("NOTICE $target :$message");
 }
 
+# Send an invite
+sub send_invite {
+    my ($irc, $user, $channel) = @_;
+    # We want these as strings only
+    $user = $$user if blessed $user;
+    $channel = $$channel if blessed $channel;
+    $irc->send("INVITE $user $channel");
+}
+
+# Kick a user
+sub send_kick {
+    my ($irc, $channel, $user, $reason) = @_;
+    # We want these as strings only
+    $user = $$user if blessed $user;
+    $channel = $$channel if blessed $channel;         
+    $channel->irc->send("KICK $channel ".$user.(defined $reason ? " :$reason" : q..));
+}
+
+# Set / Get topic
+sub send_topic {
+    my ($irc, $channel, $topic) = @_;
+    $channel = $$channel if blessed $channel; # We only care for $channel as a string.
+    $irc->send("PART $channel".(defined $topic ? " :$topic" : q..));
+}
+
 1
