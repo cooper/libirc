@@ -18,6 +18,8 @@ package IRC;
 #   [ ] add feature to argument parser for type parameters such as source(u)
 #   [x] move IRC parser to its own package
 #   [ ] IRC color formatter: %bold(%blue(hi) %red(are) %green(you) %yellow(there))
+#   [ ] implement STARTTLS and dynamic enabling of SSL/TLS
+#
 
 use warnings;
 use strict;
