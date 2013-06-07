@@ -51,4 +51,24 @@ sub send_whox {
     $irc->send("WHO $query \%$flags,$id");
 }
 
+# Oper up
+sub send_oper {
+    my ($irc, $user, $password) = @_;
+    $irc->send("OPER $user $password");
+}
+
+# Send a message
+sub send_privmsg {
+    my ($irc, $target, $message) = @_;
+    $target = $$target if blessed $target; # We only care for $target as a string
+    $irc->send("PRIVMSG $target :$message");
+}
+
+# Send a notice
+sub send_notice {
+    my ($irc, $target, $message) = @_;
+    $target = $$target if blessed $target; # We only care for $target as a string
+    $irc->send("NOTICE $target :$message");
+}
+
 1
