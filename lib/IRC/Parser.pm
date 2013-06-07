@@ -366,14 +366,8 @@ sub args {
         # user source, id, or nickname.
         when ('user') {
         
-            # is it a source object?
-            if (ref $arg && ref $arg eq 'HASH') {
-                my $source = $irc->_get_source($arg);
-                $return = $source, next TYPE if $source;
-            }
-            
             # nickname or ID.
-            $return = $irc->pool->get_user($arg);
+            $return = $irc->new_user_from_nick($arg);
             
         }
         
