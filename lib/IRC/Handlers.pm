@@ -76,13 +76,18 @@ sub apply_handlers {
     return 1;
 }
 
-# PING from server.
-sub handle_ping {
-    my ($irc, $response) = IRC::args(@_, 'irc *response');
-    $irc->send("PONG :$response");
+####################
+### IRC NUMERICS ###
+##########################################################################################
+
+# RPL_MYINFO (004): Server version and information.
+sub handle_myinfo {
+    my ($irc, $event, $source) = @_;
+    $irc->pool->set_server_name($irc->server, $irc->server->{name}, $source->{name});
+    $irc->server->{name} = $source->{name};
 }
 
-# handle RPL_ISUPPORT (005)
+# RPL_ISUPPORT (005): Server support information.
 sub handle_isupport {
     my ($irc, @stuff) = IRC::args(@_, 'irc @stuff');
     pop @stuff; # the last arg is :are supported by this server.
@@ -106,7 +111,96 @@ sub handle_isupport {
     return 1;
 }
 
-# End of MOTD or MOTD file not found
+# RPL_WHOEND (315): End of WHO list.
+sub handle_whoend {
+    my $irc = shift;
+    
+    # if it was a WHOX, delete the flags.
+    if (defined $irc->{_whox_current_id}) {
+        delete $irc->{_whox_flags}{ delete $irc->{_whox_current_id}} ;
+    }
+}
+
+
+# RPL_TOPIC (332): Channel topic.
+sub handle_got_topic {
+    my ($channel, $topic) = IRC::args(@_, 'channel *topic');
+    
+    # store the topic temporarily until we get RPL_TOPICWHOTIME.
+    $channel->{temp_topic} = $topic;
+}
+
+# RPL_TOPICWHOTIME (333): Channel topic setter and set time.
+sub handle_got_topic_time {
+    my ($channel, $setter, $settime) = IRC::args(@_, 'channel *setter *settime');
+
+    # set the topic.
+    $channel->set_topic(delete $channel->{temp_topic}, $setter, $settime);
+
+}
+
+# RPL_WHOREPLY (352): WHO query reply.
+sub handle_whoreply {
+    my ($irc, $channel, @params) = IRC::args(@_, 'irc channel rest');
+    
+    # the hops is in the real name for some reason.
+    if ($params[$#params] =~ m/^[0-9]/) {
+        $params[$#params] = (split ' ', $params[$#params], 2)[1];
+    }
+    
+    # fake a -1 WHOX.
+    $irc->{_whox_flags}{-1} = [qw(u h s n f r)];
+    _handle_who_long($irc, -1, @params);
+    
+}
+
+# RPL_NAMREPLY (353): Channel NAMES reply.
+sub handle_namesreply {
+    my ($irc, $channel, @names) = IRC::args(@_, 'irc .type channel @names');
+
+    NICK: foreach my $nick (@names) {
+
+        # status levels to apply.
+        my @levels;
+
+        LETTER: foreach my $letter (split //, $nick) {
+            
+            # is it a prefix?
+            if (defined(my $level = $irc->server->prefix_to_level($letter))) {
+                $nick =~ s/.{1}//;
+
+                # add to the levels to apply.
+                push @levels, $level;
+                
+            }
+
+            # not a prefix.
+            else {
+                last LETTER;
+            }
+
+        }
+
+        my $user = $irc->new_user_from_nick($nick);
+        $user->set_nick($nick); # XXX: why?
+
+        # add the user to the channel.
+        $channel->add_user($user);
+
+        # apply the levels.
+        $channel->add_status($user, $_) foreach @levels;
+
+    }
+}
+
+# RPL_WHOSPCRPL (354): WHO query reply on WHOX-enabled servers.
+sub handle_whoxreply {
+    my ($irc, $id, $channel, @params) = IRC::args(@_, 'irc *id channel rest');
+    _handle_who_long($irc, $id, @params);
+}
+
+# RPL_ENDOFMOTD (376): End of message of the day.
+# RPL_NOMOTD    (422): No MOTD file found.
 sub handle_endofmotd {
     my $irc = shift;
     if ($irc->{autojoin} && ref $irc->{autojoin} eq 'ARRAY' && !$irc->{_joined_auto}) {
@@ -120,7 +214,44 @@ sub handle_endofmotd {
     return;
 }
 
-# PRIVMSG command
+# ERR_NICKNAMEINUSE (433): Desired nickname is currently in use.
+sub handle_nick_taken {
+    my ($irc, $nick) = IRC::args(@_, 'irc *nick');
+    $irc->fire_event(nick_taken => $nick);
+}
+
+# RPL_LOGGEDIN (900): The client logged in.
+sub handle_loggedin {
+    my ($irc, $account) = IRC::args(@_, 'irc *account');
+    $irc->{me}->set_account($account);
+}
+
+# RPL_LOGGEDOUT (901): The client logged out.
+sub handle_loggedout {
+    my $irc = shift;
+    $irc->{me}->set_account(undef);
+}
+
+# RPL_SASLSUCCESS (903): SASL authentication succeeded.
+# ERR_SASLFAIL    (904): SASL authentication failed.
+# ERR_SASLTOOLONG (905): SASL too long.
+# ERR_SASLABORTED (906): The client aborted SASL authentication.
+sub handle_sasldone {
+    my $irc = shift;
+    $irc->continue_login;
+}
+
+####################
+### IRC COMMANDS ###
+##########################################################################################
+
+# PING: Ping from server.
+sub handle_ping {
+    my ($irc, $response) = IRC::args(@_, 'irc *response');
+    $irc->send("PONG :$response");
+}
+
+# PRIVMSG: Message to user or channel.
 sub handle_privmsg {
     my ($irc, $source, $target, $msg) = IRC::args(@_, 'irc +source +target *msg') or return;
 
@@ -133,15 +264,15 @@ sub handle_privmsg {
 
 }
 
-# handle a nick change
-# :user NICK new_nick
+# NICK: User changed nickname.
 sub handle_nick {
     my ($user, $nick) = IRC::args(@_, '+source *nick') or return;
     return unless $user->isa('IRC::User');
     $user->set_nick($nick);
 }
 
-# user joins a channel
+# JOIN: User joined a channel.
+# this handler supports the extended-join IRCv3 capability.
 sub handle_join {
     my ($irc, $user, $channel, $account, $realname) =
     IRC::args(@_, 'irc +source +channel *acct *real') or return;
@@ -179,7 +310,7 @@ sub handle_join {
     
 }
 
-# user parts a channel
+# PART: User parted a channel.
 sub handle_part {
     my ($irc, $user, $channel, $reason) =
     IRC::args(@_, 'irc +source +channel *reason') or return;
@@ -196,70 +327,7 @@ sub handle_part {
 
 }
 
-# RPL_TOPIC
-sub handle_got_topic {
-    my ($channel, $topic) = IRC::args(@_, 'channel *topic');
-    
-    # store the topic temporarily until we get RPL_TOPICWHOTIME.
-    $channel->{temp_topic} = $topic;
-}
-
-# RPL_TOPICWHOTIME
-sub handle_got_topic_time {
-    my ($channel, $setter, $settime) = IRC::args(@_, 'channel *setter *settime');
-
-    # set the topic.
-    $channel->set_topic(delete $channel->{temp_topic}, $setter, $settime);
-
-}
-
-# RPL_NAMREPLY
-sub handle_namesreply {
-    my ($irc, $channel, @names) = IRC::args(@_, 'irc .type channel @names');
-
-    NICK: foreach my $nick (@names) {
-
-        # status levels to apply
-        my @levels;
-
-        LETTER: foreach my $letter (split //, $nick) {
-            
-            # is it a prefix?
-            if (defined(my $level = $irc->server->prefix_to_level($letter))) {
-                $nick =~ s/.{1}//;
-
-                # add to the levels to apply.
-                push @levels, $level;
-                
-            }
-
-            # not a prefix.
-            else {
-                last LETTER;
-            }
-
-        }
-
-        my $user = $irc->new_user_from_nick($nick);
-        $user->set_nick($nick); # XXX: why?
-
-        # add the user to the channel
-        $channel->add_user($user);
-
-        # apply the levels
-        foreach my $level (@levels) {
-            $channel->add_status($user, $level);
-        }
-
-    }
-}
-
-sub handle_nick_taken {
-    my ($irc, $nick) = IRC::args(@_, 'irc *nick');
-    $irc->fire_event(nick_taken => $nick);
-}
-
-# handle QUIT.
+# QUIT: User disconnect from the server.
 sub handle_quit {
     my ($irc, $user, $reason) = IRC::args(@_, 'irc +source *reason') or return;
     return unless $user->isa('IRC::User');
@@ -268,7 +336,7 @@ sub handle_quit {
     $irc->pool->remove_user($user);
 }
 
-# Handle CAP
+# CAP: Negotiates capabilities with the server.
 sub handle_cap {
     my ($irc, $subcommand, @params) = IRC::args(@_, 'irc .target *subcmd @caps');
     
@@ -276,14 +344,32 @@ sub handle_cap {
     $irc->fire_event("cap_$subcommand" => @params);
 }
 
-# handle CAP LS.
+# ACCOUNT: IRCv3 account-notify capability.
+sub handle_account {
+    my ($user, $account) = IRC::args(@_, '+source *account') or return;
+    return unless $user->isa('IRC::User');
+    $user->set_account($account eq '*' ? undef : $account);
+}
+
+# AWAY: IRCv3 away-notify capability.
+sub handle_away {
+    my ($user, $reason) = IRC::args(@_, '+source *reason') or return;
+    return unless $user->isa('IRC::User');
+    $user->set_away($reason);
+}
+
+####################
+### OTHER EVENTS ###
+##########################################################################################
+
+# CAP LS: Server is listing its capabilities.
 sub cap_ls {
     my ($irc, @params) = @_;
     $irc->server->set_cap_available($_) foreach @params;
     $irc->_send_cap_requests;
 }
 
-# handle CAP ACK.
+# CAP ACK: Server is acknowledging its capabilites.
 sub cap_ack {
     my ($irc, @params) = @_;
     my %event_fired;
@@ -328,21 +414,7 @@ sub cap_ack {
 
 }
 
-# Handle ACCOUNT
-sub handle_account {
-    my ($user, $account) = IRC::args(@_, '+source *account') or return;
-    return unless $user->isa('IRC::User');
-    $user->set_account($account eq '*' ? undef : $account);
-}
-
-# handle AWAY
-sub handle_away {
-    my ($user, $reason) = IRC::args(@_, '+source *reason') or return;
-    return unless $user->isa('IRC::User');
-    $user->set_away($reason);
-}
-
-# handle SASL acknowledgement.
+# CAP ACK sasl: Server is acknowledging SASL support.
 sub cap_ack_sasl {
     my $irc = shift;
     $irc->send('AUTHENTICATE PLAIN');
@@ -377,133 +449,7 @@ sub cap_ack_sasl {
     
 }
 
-# Handle SASL completion
-sub handle_sasldone {
-    my $irc = shift;
-    $irc->continue_login;
-}
-
-# handle WHO reply.
-sub handle_whoreply {
-    my ($irc, $channel, @params) = IRC::args(@_, 'irc channel rest');
-    
-    # the hops is in the real name for some reason.
-    if ($params[$#params] =~ m/^[0-9]/) {
-        $params[$#params] = (split ' ', $params[$#params], 2)[1];
-    }
-    
-    # fake a -1 WHOX.
-    $irc->{_whox_flags}{-1} = [qw(u h s n f r)];
-    _handle_who_long($irc, -1, @params);
-    
-}
-
-# handle WHOX reply.
-#
-# References:
-#   http://pastebin.com/Qychi7yE
-#   http://faerion.sourceforge.net/doc/irc/whox.var
-#   http://hg.quakenet.org/snircd/file/37c9c7460603/doc/readme.who
-#
-sub handle_whoxreply {
-    my ($irc, $id, $channel, @params) = IRC::args(@_, 'irc *id channel rest');
-    _handle_who_long($irc, $id, @params);
-}
-
-# the real WHO and WHOX handler.
-sub _handle_who_long {
-    my ($irc, $id, @params) = @_;
-    
-    # fetch flags stored for this query.
-    $irc->{_whox_current_id} = $id;
-    my $flags     = $irc->{_whox_flags}{$id} or return;
-    my @flags     = @$flags;
-    my @all_flags = qw(t c u i h s n f d l a r); # in the order they are sent
-    
-    my ($user, %info);
-    
-    # find the value of each flag.
-    foreach (@all_flags) {
-        my $flag = $_;
-        
-        # we don't have this flag or it has already been handled.
-        next unless $flag ~~ @flags;
-        next if $flag =~ m/[ct]/;
-        
-        # we do have this flag, so it's the next value of @params.
-        $info{$flag} = shift @params;
-
-    }
-    
-    # find the user.
-    return unless defined $info{n};
-    $user = $irc->new_user_from_nick($info{n}) or return;
-    
-    # user flags.
-    if (defined $info{f}) {
-        my @uflags = split //, $info{f};
-        
-        # user is no longer away.
-        if (!('H' ~~ @uflags) && defined $user->{away}) {
-            $user->set_away(undef);
-        }
-        
-        # user is now away.
-        if ('G' ~~ @uflags && !defined $user->{away}) {
-            $user->set_away('YES');
-        }
-        
-    }
-    
-    # hostname, username, realname, accountname.
-    $user->set_host($info{h})    if defined $info{h};
-    $user->set_user($info{u})    if defined $info{u};
-    $user->set_real($info{r})    if defined $info{r};
-    $user->set_account($info{a}) if defined $info{a} && $info{a} ne '0';
-    
-    # server.
-    if (defined $info{s} && !$user->server) {
-        my $server = $irc->new_server_from_name($info{s});
-        $server->add_user($user);
-    }
-    
-    # IP address.
-    if (defined $info{i} && $info{i} ne '255.255.255.255') {
-        $user->{ip} = $info{i}; # TODO: create set_ip.
-    }
-    
-}
-
-# handle end of WHO list.
-sub handle_whoend {
-    my $irc = shift;
-    
-    # if it was a WHOX, delete the flags.
-    if (defined $irc->{_whox_current_id}) {
-        delete $irc->{_whox_flags}{ delete $irc->{_whox_current_id}} ;
-    }
-}
-
-# RPL_MYINFO.
-sub handle_myinfo {
-    my ($irc, $event, $source) = @_;
-    $irc->pool->set_server_name($irc->server, $irc->server->{name}, $source->{name});
-    $irc->server->{name} = $source->{name};
-}
-
-# the client logged in.
-sub handle_loggedin {
-    my ($irc, $account) = IRC::args(@_, 'irc *account');
-    $irc->{me}->set_account($account);
-}
-
-# the client logged out.
-sub handle_loggedout {
-    my $irc = shift;
-    $irc->{me}->set_account(undef);
-}
-
-# PREFIX in RPL_ISUPPORT
+# PREFIX in RPL_ISUPPORT: Declares channel status modes and associated prefixes.
 sub isupport_prefix {
     my ($irc, $val) = @_;
     
@@ -568,7 +514,7 @@ sub isupport_prefix {
 
 }
 
-# CHANMODES in RPL_ISUPPORT
+# CHANMODES in RPL_ISUPPORT: Declares channel mode types supported by the server.
 sub isupport_chanmodes {
     my ($irc, $val) = @_;
     
@@ -597,5 +543,80 @@ sub isupport_chanmodes {
     }
 }
 
-1
+#########################
+### INTERNAL ROUTINES ###
+##########################################################################################
 
+# The real WHO and WHOX parser.
+# On WHOX-enabled servers, this is used directly.
+# On servers with only traditional WHO, a constant list of WHOX flags is used.
+#
+# References:
+#   http://pastebin.com/Qychi7yE
+#   http://faerion.sourceforge.net/doc/irc/whox.var
+#   http://hg.quakenet.org/snircd/file/37c9c7460603/doc/readme.who
+#
+sub _handle_who_long {
+    my ($irc, $id, @params) = @_;
+    
+    # fetch flags stored for this query.
+    $irc->{_whox_current_id} = $id;
+    my $flags     = $irc->{_whox_flags}{$id} or return;
+    my @flags     = @$flags;
+    my @all_flags = qw(t c u i h s n f d l a r); # in the order they are sent
+    
+    my ($user, %info);
+    
+    # find the value of each flag.
+    foreach (@all_flags) {
+        my $flag = $_;
+        
+        # we don't have this flag or it has already been handled.
+        next unless $flag ~~ @flags;
+        next if $flag =~ m/[ct]/;
+        
+        # we do have this flag, so it's the next value of @params.
+        $info{$flag} = shift @params;
+
+    }
+    
+    # find the user.
+    return unless defined $info{n};
+    $user = $irc->new_user_from_nick($info{n}) or return;
+    
+    # user flags.
+    if (defined $info{f}) {
+        my @uflags = split //, $info{f};
+        
+        # user is no longer away.
+        if (!('H' ~~ @uflags) && defined $user->{away}) {
+            $user->set_away(undef);
+        }
+        
+        # user is now away.
+        if ('G' ~~ @uflags && !defined $user->{away}) {
+            $user->set_away('YES');
+        }
+        
+    }
+    
+    # hostname, username, realname, accountname.
+    $user->set_host($info{h})    if defined $info{h};
+    $user->set_user($info{u})    if defined $info{u};
+    $user->set_real($info{r})    if defined $info{r};
+    $user->set_account($info{a}) if defined $info{a} && $info{a} ne '0';
+    
+    # server.
+    if (defined $info{s} && !$user->server) {
+        my $server = $irc->new_server_from_name($info{s});
+        $server->add_user($user);
+    }
+    
+    # IP address.
+    if (defined $info{i} && $info{i} ne '255.255.255.255') {
+        $user->{ip} = $info{i}; # TODO: create set_ip.
+    }
+    
+}
+
+1
