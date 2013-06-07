@@ -51,7 +51,7 @@ use IRC::Functions::Server;
 use IRC::Functions::Channel;
 use IRC::Functions::User;
 
-our $VERSION = '6.2';
+our $VERSION = '6.3';
 
 # create a new IRC instance
 sub new {
@@ -151,6 +151,12 @@ sub channel_from_name {
 # or return the channel if it exists
 sub new_channel_from_name {
     my ($irc, $name) = @_;
+    
+    # the name must start with one of the channel prefixes.
+    my @prefixes = split //, $irc->server->support('chantypes');
+    my $prefix   = substr $name, 0, 1;
+    return unless $prefix ~~ @prefixes;
+    
     return $irc->pool->get_channel($name)
     || $irc->pool->add_channel( IRC::Channel->new(
         pool => $irc->pool,
