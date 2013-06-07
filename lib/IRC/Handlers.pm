@@ -16,25 +16,25 @@ my %handlers = (
 
     # NUMERICS
 
-    num_004         => \&handle_myinfo,         # RPL_MYINFO:           server version and info
-    num_005         => \&handle_isupport,       # RPL_ISUPPORT:         server support information
-    num_315         => \&handle_whoend,         # RPL_ENDOFWHO:         End of WHO query
-    num_332         => \&handle_got_topic,      # RPL_TOPIC:            channel topic
-    num_333         => \&handle_got_topic_time, # RPL_TOPICWHOTIME:     topic setter and time
-    num_352         => \&handle_whoreply,       # RPL_WHOREPLY:         WHO response
-    num_353         => \&handle_namesreply,     # RPL_NAMREPLY:         channel names response
-    num_354         => \&handle_whoxreply,      # RPL_WHOSPCRPL:        WHOX response
-    num_376         => \&handle_endofmotd,      # RPL_ENDOFMOTD:        end of MOTD command
-    num_422         => \&handle_endofmotd,      # ERR_NOMOTD:           MOTD file not found
-    num_433         => \&handle_nick_taken,     # ERR_NICKNAMEINUSE:    nickname in use
-    num_900         => \&handle_loggedin,       # RPL_LOGGEDIN:         client logged in
-    num_901         => \&handle_loggedout,      # RPL_LOGGEDOUT:        client logged out
-    num_903         => \&handle_sasldone,       # RPL_SASLSUCCESS:      SASL successful
-    num_904         => \&handle_sasldone,       # ERR_SASLFAIL:         SASL failure
-    num_905         => \&handle_sasldone,       # ERR_SASLTOOLONG:      SASL failure
-    num_906         => \&handle_sasldone,       # ERR_SASLABORTED:      SASL aborted by client
-  # num_907                                     # ERR_SASLALREADY:      AUTHENTICATE used twice
-  # num_908                                     # RPL_SASLMECHS
+    num_004 => \&handle_myinfo,         # RPL_MYINFO:           server version and info
+    num_005 => \&handle_isupport,       # RPL_ISUPPORT:         server support information
+    num_315 => \&handle_whoend,         # RPL_ENDOFWHO:         End of WHO query
+    num_332 => \&handle_got_topic,      # RPL_TOPIC:            channel topic
+    num_333 => \&handle_got_topic_time, # RPL_TOPICWHOTIME:     topic setter and time
+    num_352 => \&handle_whoreply,       # RPL_WHOREPLY:         WHO response
+    num_353 => \&handle_namesreply,     # RPL_NAMREPLY:         channel names response
+    num_354 => \&handle_whoxreply,      # RPL_WHOSPCRPL:        WHOX response
+    num_376 => \&handle_endofmotd,      # RPL_ENDOFMOTD:        end of MOTD command
+    num_422 => \&handle_endofmotd,      # ERR_NOMOTD:           MOTD file not found
+    num_433 => \&handle_nick_taken,     # ERR_NICKNAMEINUSE:    nickname in use
+    num_900 => \&handle_loggedin,       # RPL_LOGGEDIN:         client logged in
+    num_901 => \&handle_loggedout,      # RPL_LOGGEDOUT:        client logged out
+    num_903 => \&handle_sasldone,       # RPL_SASLSUCCESS:      SASL successful
+    num_904 => \&handle_sasldone,       # ERR_SASLFAIL:         SASL failure
+    num_905 => \&handle_sasldone,       # ERR_SASLTOOLONG:      SASL failure
+    num_906 => \&handle_sasldone,       # ERR_SASLABORTED:      SASL aborted by client
+  # num_907                             # ERR_SASLALREADY:      AUTHENTICATE used twice
+  # num_908                             # RPL_SASLMECHS
   
     # SPECIAL COMMANDS
     
@@ -54,9 +54,11 @@ my %handlers = (
     
     # OTHER EVENTS
     
-    cap_ls          => \&handle_cap_ls,         # server listed its capabilities
-    cap_ack         => \&handle_cap_ack,        # server acknowledged some capabilities
-    cap_ack_sasl    => \&handle_cap_ack_sasl    # server acknowledged SASL
+    isupport_prefix     => \&isupport_prefix,       # got PREFIX in RPL_ISUPPORT
+    isupport_chanmodes  => \&isupport_chanmodes,    # got CHANMODES in RPL_ISUPPORT
+    cap_ls              => \&cap_ls,                # server listed its capabilities
+    cap_ack             => \&cap_ack,               # server acknowledged some capabilities
+    cap_ack_sasl        => \&cap_ack_sasl           # server acknowledged SASL
     
 );
 
@@ -83,127 +85,25 @@ sub handle_ping {
 # handle RPL_ISUPPORT (005)
 sub handle_isupport {
     my ($irc, @stuff) = IRC::args(@_, 'irc @stuff');
+    pop @stuff; # the last arg is :are supported by this server.
+    foreach my $support (@stuff) { 
+        my $val = 1;
 
-    my $val;
-    foreach my $support (@stuff[0..$#stuff - 1]) {
-        $val = 1;
-
-        # get BLAH=blah types
+        # get KEY=value types
         if ($support =~ m/(.+?)=(.+)/) {
             $support = $1;
             $val     = $2;
         }
 
-        # fire an event saying that we got the support string
-        # for example, to update the network name when NETWORK is received.
-        $irc->fire_event('isupport_got_'.lc($support), $val);
-        
         # set this support value.
         $irc->server->set_support($support, $val);
+        
+        # fire an event saying that we got this support value.
+        $irc->fire_event('isupport_'.lc($support), $val);
+        
+    }
 
-      given (uc $support) {
-
-        # store the network name
-        when ('NETWORK') {
-            $irc->{network} = $val;
-        }
-
-        when ('PREFIX') {
-            # prefixes are stored in $irc->{ircd}{prefix}{<status level>}
-            # and their value is an array reference of [symbol, mode letter]
-            # update[6 June 2013]: IRC::Server is responsible for managing prefixes.
-            #
-            # it's hard to support so many different prefixes
-            # because we want pixmaps to match up on different networks.
-            # the main idea is that if we can find an @, use it as 0
-            # and work our way up and down from there. if we can't find
-            # an @, start at the top and work our way down. this still
-            # has a problem, though. networks that don't have halfop
-            # will have a different pixmap for voice than networks who do.
-            # so in order to avoid that we will look specially for + as well.
-
-            # tl;dr: use 0 at @ if @ exists; otherwise start at the top and work down
-            # (negative levels are likely if @ exists)
-
-            $val =~ m/\((.+?)\)(.+)/;
-            my ($modes, $prefixes, %final) = ($1, $2);
-
-            # does it have an @?
-            if ($prefixes =~ m/(.*)\@(.*)/) {
-                my $current = length $1; # the number of prefixes before @ is the top level
-                my @before  = $1 ? split //, $1 : ();
-                my @after   = $2 ? split //, $2 : ();
-
-                # before the @
-                foreach my $symbol (@before) {
-                    $final{$current} = $symbol;
-                    $current--
-                }
-
-                $final{$current} = '@';
-                $current--; # for the @
-
-                # after the @
-                foreach my $symbol (@after) {
-                    $final{$current} = $symbol;
-                    $current--
-                }
-                
-            }
-
-            # no @, so just start from the top
-            else {
-                my $current = length $prefixes;
-                foreach my $symbol (split //, $prefixes) {
-                    $final{$current} = $symbol;
-                    $current--
-                }
-            }
-
-            # store
-            my ($i, @modes) = (0, split(//, $modes));
-            foreach my $level (reverse sort { $a <=> $b } keys %final) {
-                $irc->server->set_prefix($level, $final{$level}, $modes[$i]);
-                $i++
-            }
-
-            # fire the event that says we handled prefixes
-            $irc->fire_event('isupport_got_prefixes');
-            
-        }
-
-        # CHANMODES tells us what modes are which.
-        # we need this so we know which modes to expect to have parameters.
-        # modes are stored in $irc->{chmode}{<letter>} = { type => <type> }
-        when ('CHANMODES') {
-
-            # CHANMODES=eIb,k,fl,ACDEFGJKLMNOPQSTcgimnpstz
-            # CHANMODES=
-            # (0) list modes,
-            # (1) modes that take parameters ALWAYS,
-            # (2) modes that take parameters only when setting,
-            # (3) modes that don't take parameters
-
-            my $type = 0;
-            foreach my $mode (split //, $val) {
-
-                # next type
-                if ($mode eq ',') {
-                    $type++;
-                    next
-                }
-
-                # store it
-                $irc->{chmode}{$mode}{type} = $type
-            }
-
-        }
-
-        # ugly
-
-    } } # too much nesting
-
-    return 1
+    return 1;
 }
 
 # End of MOTD or MOTD file not found
@@ -377,14 +277,14 @@ sub handle_cap {
 }
 
 # handle CAP LS.
-sub handle_cap_ls {
+sub cap_ls {
     my ($irc, @params) = @_;
     $irc->server->set_cap_available($_) foreach @params;
     $irc->_send_cap_requests;
 }
 
 # handle CAP ACK.
-sub handle_cap_ack {
+sub cap_ack {
     my ($irc, @params) = @_;
     my %event_fired;
     foreach my $cap (@params) {
@@ -443,7 +343,7 @@ sub handle_away {
 }
 
 # handle SASL acknowledgement.
-sub handle_cap_ack_sasl {
+sub cap_ack_sasl {
     my $irc = shift;
     $irc->send('AUTHENTICATE PLAIN');
     
@@ -601,6 +501,100 @@ sub handle_loggedin {
 sub handle_loggedout {
     my $irc = shift;
     $irc->{me}->set_account(undef);
+}
+
+# PREFIX in RPL_ISUPPORT
+sub isupport_prefix {
+    my ($irc, $val) = @_;
+    
+    # prefixes are stored in $irc->{ircd}{prefix}{<status level>}
+    # and their value is an array reference of [symbol, mode letter]
+    # update[6 June 2013]: IRC::Server is responsible for managing prefixes.
+    #
+    # it's hard to support so many different prefixes
+    # because we want pixmaps to match up on different networks.
+    # the main idea is that if we can find an @, use it as 0
+    # and work our way up and down from there. if we can't find
+    # an @, start at the top and work our way down. this still
+    # has a problem, though. networks that don't have halfop
+    # will have a different pixmap for voice than networks who do.
+    # so in order to avoid that we will look specially for + as well.
+
+    # tl;dr: use 0 at @ if @ exists; otherwise start at the top and work down
+    # (negative levels are likely if @ exists)
+
+    $val =~ m/\((.+?)\)(.+)/;
+    my ($modes, $prefixes, %final) = ($1, $2);
+
+    # does it have an @?
+    # the number of prefixes before @ is the top level.
+    if ($prefixes =~ m/(.*)\@(.*)/) {
+        my $current = length $1;
+        my @before  = $1 ? split //, $1 : ();
+        my @after   = $2 ? split //, $2 : ();
+
+        # before the @
+        foreach my $symbol (@before) {
+            $final{$current} = $symbol;
+            $current--;
+        }
+
+        $final{$current} = '@';
+        $current--; # for the @
+
+        # after the @
+        foreach my $symbol (@after) {
+            $final{$current} = $symbol;
+            $current--;
+        }
+        
+    }
+
+    # no @, so just start from the top.
+    else {
+        my $current = length $prefixes;
+        foreach my $symbol (split //, $prefixes) {
+            $final{$current} = $symbol;
+            $current--;
+        }
+    }
+
+    # store.
+    my ($i, @modes) = (0, split(//, $modes));
+    foreach my $level (reverse sort { $a <=> $b } keys %final) {
+        $irc->server->set_prefix($level, $final{$level}, $modes[$i]);
+        $i++;
+    }
+
+}
+
+# CHANMODES in RPL_ISUPPORT
+sub isupport_chanmodes {
+    my ($irc, $val) = @_;
+    
+    # CHANMODES tells us what modes are which.
+    # we need this so we know which modes to expect to have parameters.
+    # modes are stored in $irc->{chmode}{<letter>} = { type => <type> }
+
+    # CHANMODES=eIb,k,fl,ACDEFGJKLMNOPQSTcgimnpstz
+    # CHANMODES=
+    # (0) list modes,
+    # (1) modes that take parameters ALWAYS,
+    # (2) modes that take parameters only when setting,
+    # (3) modes that don't take parameters
+
+    my $type = 0;
+    foreach my $mode (split //, $val) {
+
+        # next type
+        if ($mode eq ',') {
+            $type++;
+            next
+        }
+
+        # store it
+        $irc->{chmode}{$mode}{type} = $type; # TODO.
+    }
 }
 
 1
