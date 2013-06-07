@@ -18,6 +18,8 @@ package IRC;
 #   [ ] add feature to argument parser for type parameters such as source(u)
 #   [x] move IRC parser to its own package
 #   [ ] IRC color formatter: %bold(%blue(hi) %red(are) %green(you) %yellow(there))
+#   [ ] implement STARTTLS and dynamic enabling of SSL/TLS
+#
 
 use warnings;
 use strict;
@@ -49,7 +51,7 @@ use IRC::Functions::Server;
 use IRC::Functions::Channel;
 use IRC::Functions::User;
 
-our $VERSION = '6.0';
+our $VERSION = '6.1';
 
 # create a new IRC instance
 sub new {

@@ -274,10 +274,19 @@ sub args {
         my @mods = @{$modifiers[$u]};
         
     TYPE: foreach (split /\|/) {                # individual type string (i.e. 'user')
-        my $type = $_;
         
         # we already found a return value for this ustr.
         last TYPE if defined $return;
+        
+        my ($type, $opt) = $_;
+        
+        # parse options.
+        if ($type =~ m/(.*)\((.*)\)/) {
+            $type = $1;
+            $opt  = $2;
+        }
+        
+    given ($type) {
         
         # dummy modifier; skip.
         when ($_ eq 'dummy' || '.' ~~ @mods) {
@@ -336,6 +345,22 @@ sub args {
                 });
             }
             
+            # option:
+            #
+            # now that we've found our source, we check if an option was specified.
+            # u = user.
+            # s = server.
+            # a = either.
+            #
+            # This will return undef if it does not match the option.
+            # If it is undef and the '+' modifier is in use, the entire thing will
+            # return undef and cause the handler to be canceled.
+            #
+            if (defined $return && defined $opt) {
+                $return = undef if $opt eq 'u' && !$return->isa('IRC::User');
+                $return = undef if $opt eq 's' && !$return->isa('IRC::Server');
+            }
+            
         }
         
         # user source, id, or nickname.
@@ -376,7 +401,7 @@ sub args {
             next USTR;
         }
         
-    }
+    } } # this is all so ugly
     
         # if the + modifier is present, this value MUST be defined.
         if ('+' ~~ @mods && !defined $return) {
@@ -385,7 +410,7 @@ sub args {
         
         push @return, $return; $return = undef
     
-    }
+    }  # this is all so ugly
     
     return @return;
 }

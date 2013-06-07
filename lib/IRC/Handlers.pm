@@ -266,8 +266,7 @@ sub handle_privmsg {
 
 # NICK: User changed nickname.
 sub handle_nick {
-    my ($user, $nick) = IRC::args(@_, '+source *nick') or return;
-    return unless $user->isa('IRC::User');
+    my ($user, $nick) = IRC::args(@_, '+source(u) *nick') or return;
     $user->set_nick($nick);
 }
 
@@ -275,8 +274,7 @@ sub handle_nick {
 # this handler supports the extended-join IRCv3 capability.
 sub handle_join {
     my ($irc, $user, $channel, $account, $realname) =
-    IRC::args(@_, 'irc +source +channel *acct *real') or return;
-    return unless $user->isa('IRC::User');
+    IRC::args(@_, 'irc +source(u) +channel *acct *real') or return;
     
     # add user to channel.
     $channel->add_user($user);
@@ -313,8 +311,7 @@ sub handle_join {
 # PART: User parted a channel.
 sub handle_part {
     my ($irc, $user, $channel, $reason) =
-    IRC::args(@_, 'irc +source +channel *reason') or return;
-    return unless $user->isa('IRC::User');
+    IRC::args(@_, 'irc +source(u) +channel *reason') or return;
 
     # remove the user.
     $channel->remove_user($user);
@@ -329,8 +326,7 @@ sub handle_part {
 
 # QUIT: User disconnect from the server.
 sub handle_quit {
-    my ($irc, $user, $reason) = IRC::args(@_, 'irc +source *reason') or return;
-    return unless $user->isa('IRC::User');
+    my ($irc, $user, $reason) = IRC::args(@_, 'irc +source(u) *reason') or return;
     
     $user->fire_event(quit => $reason);
     $irc->pool->remove_user($user);
@@ -346,15 +342,13 @@ sub handle_cap {
 
 # ACCOUNT: IRCv3 account-notify capability.
 sub handle_account {
-    my ($user, $account) = IRC::args(@_, '+source *account') or return;
-    return unless $user->isa('IRC::User');
+    my ($user, $account) = IRC::args(@_, '+source(u) *account') or return;
     $user->set_account($account eq '*' ? undef : $account);
 }
 
 # AWAY: IRCv3 away-notify capability.
 sub handle_away {
-    my ($user, $reason) = IRC::args(@_, '+source *reason') or return;
-    return unless $user->isa('IRC::User');
+    my ($user, $reason) = IRC::args(@_, '+source(u) *reason') or return;
     $user->set_away($reason);
 }
 
