@@ -13,12 +13,12 @@ use strict;
 
 sub send_privmsg {
     my ($channel, $msg) = @_;
-    $channel->irc->send("PRIVMSG $$channel :$msg");
+    $channel->irc->send_privmsg($channel, $msg);
 }
 
 sub send_notice {
     my ($channel, $msg) = @_;
-    $channel->irc->send("NOTICE $$channel :$msg");
+    $channel->irc->send_notice($channel, $msg);
 }
 
 sub send_topic {
