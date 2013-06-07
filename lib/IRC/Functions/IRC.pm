@@ -93,7 +93,14 @@ sub send_kick {
 sub send_topic {
     my ($irc, $channel, $topic) = @_;
     $channel = $$channel if blessed $channel; # We only care for $channel as a string.
-    $irc->send("PART $channel".(defined $topic ? " :$topic" : q..));
+    $irc->send("TOPIC $channel".(defined $topic ? " :$topic" : q..));
+}
+
+# Set / Get modes
+sub send_mode {
+    my ($irc, $target, $modes) = @_;
+    $target = $$target if blessed $target;
+    $irc->send("MODE $target".(defined $modes ? q( ).$modes : q()));
 }
 
 1
