@@ -41,4 +41,9 @@ sub send_part {
     $channel->irc->send_part($channel, $reason);
 }
 
+sub send_mode {
+    my ($channel, $modes) = @_;
+    $channel->irc->send_mode($channel, $modes);
+}
+
 1

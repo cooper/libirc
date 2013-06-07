@@ -30,6 +30,12 @@ sub send_part {
     $irc->send("PART $$channel".(defined $reason ? " :$reason" : q..));
 }
 
+# Send away
+sub send_away {
+    my ($irc, $reason) = @_;
+    $irc->send("AWAY ".(defined $reason ? " :$reason" : q..));
+}
+
 # traditional WHO.
 sub send_who {
     my ($irc, $query) = @_;
