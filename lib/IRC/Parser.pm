@@ -110,12 +110,12 @@ sub parse_data_new {
             $has_tags = 1;
         }
         
-        # whitespace:
+        # space:
         #
-        # if the last character is not whitespace
+        # if the last character is not space
         # and we have not received the colon.
-        if ($char =~ m/\s/ && !$got_colon) { 
-            next if defined $last_char && $last_char =~ m/\s/;
+        if ($char eq ' ' && !$got_colon) { 
+            next if defined $last_char && $last_char eq ' ';
             $arg_i++;
             $last_char = $char;
             next;

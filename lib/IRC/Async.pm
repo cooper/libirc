@@ -84,7 +84,7 @@ sub configure {
     foreach my $key (@$keys) {
         my $val = delete $opts{$key} or next;
         next unless defined $val;
-        next if exists $self->{$key};
+        next if     exists  $self->{$key};
         $self->{$key} = $val;
     }
     
