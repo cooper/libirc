@@ -414,8 +414,7 @@ sub _get_source {
     my ($irc, $source) = @_;
     return if not $source && ref $source eq 'HASH';
     if ($source->{type} eq 'user') {
-        my $user = $irc->new_user_from_nick($source->{nick});
-        return unless $user;
+        my $user = $irc->new_user_from_nick($source->{nick}) or return;
         
         # update host.
         $user->set_host($source->{host})
@@ -427,7 +426,10 @@ sub _get_source {
             
         return $user;    
     }
-    return 'fakeserver'; # TODO: servers.
+    if ($source->{type} eq 'server') {
+        my $server = $irc->new_server_from_name($source->{name}) or return;
+        return $server;
+    }
     return;
 }
 
