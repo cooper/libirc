@@ -82,8 +82,10 @@ sub configure {
         sasl_pass enable_raw_events
     )];
     foreach my $key (@$keys) {
-        defined(my $val = delete $opts{$key}) or next;
-        $self->{$key}   = $val;
+        my $val = delete $opts{$key} or next;
+        next unless defined $val;
+        next if exists $self->{$key};
+        $self->{$key} = $val;
     }
     
     $self->SUPER::configure(%opts);

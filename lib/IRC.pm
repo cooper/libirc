@@ -15,7 +15,7 @@ package IRC;
 #   [ ] create a class for manging multiple IRC servers
 #   [x] make users and channels independent of IRC objects with ->add_*, ->remove_*, etc.
 #   [ ] create a proper MODE handler
-#   [ ] add feature to argument parser for type parameters such as source(u)
+#   [x] add feature to argument parser for type parameters such as source(u)
 #   [x] move IRC parser to its own package
 #   [ ] IRC color formatter: %bold(%blue(hi) %red(are) %green(you) %yellow(there))
 #   [ ] implement STARTTLS and dynamic enabling of SSL/TLS
