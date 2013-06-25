@@ -9,7 +9,7 @@
 #                                                  |
 # Async.pm: IO::Async::Protocol for libirc socket. |
 #---------------------------------------------------
-package IRC::Async;
+package Evented::IRC::Async;
 
 # IO::Async---
 # | This class inherits from IRC and IO::Async::Protocol::LineStream. it can be used,
@@ -35,13 +35,13 @@ package IRC::Async;
 
 use strict;
 use warnings;
-use parent qw(IO::Async::Protocol::LineStream IRC);
+use parent qw(IO::Async::Protocol::LineStream Evented::IRC);
 use 5.010;
 
 sub new {
     my ($class, %opts) = @_;
     my $self = $class->SUPER::new(%opts);
-    $self->IRC::configure(%opts);
+    $self->Evented::IRC::configure(%opts);
     return $self;
 }
 
@@ -59,7 +59,7 @@ sub _init {
 }
 
 sub on_read_line;
-*on_read_line = *IRC::Parser::handle_data;
+*on_read_line = *Evented::IRC::Parser::handle_data;
 
 sub configure {
     my ($self, %opts) = @_;
@@ -111,7 +111,7 @@ sub login {
 
     # enable UTF-8.
     $self->transport->configure(encoding => 'UTF-8');
-    $self->IRC::login();
+    $self->Evented::IRC::login();
     
 }
 

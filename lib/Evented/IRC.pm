@@ -5,7 +5,7 @@
 # Copyright (c) 2012, the NoTrollPlzNet developers |
 # Copyright (c) 2012-13, Mitchell Cooper           |
 #---------------------------------------------------
-package IRC;
+package Evented::IRC;
 
 # TODO LIST:
 #
@@ -25,7 +25,7 @@ use warnings;
 use strict;
 use utf8;
 use 5.010;
-use parent qw(EventedObject IRC::Parser IRC::Functions::IRC);
+use parent qw(EventedObject Evented::IRC::Parser Evented::IRC::Functions::IRC);
 use overload
     '""'     => sub { shift->{id} },            # string context  = ID
     '0+'     => sub { shift },                  # numeric context = memory address 
@@ -39,19 +39,19 @@ use EventedObject;
 
 use Scalar::Util qw(blessed);
 
-use IRC::Pool;
-use IRC::Server;
-use IRC::Channel;
-use IRC::User;
-use IRC::Parser;
-use IRC::Handlers;
-use IRC::Utils;
-use IRC::Functions::IRC;
-use IRC::Functions::Server;
-use IRC::Functions::Channel;
-use IRC::Functions::User;
+use Evented::IRC::Pool;
+use Evented::IRC::Server;
+use Evented::IRC::Channel;
+use Evented::IRC::User;
+use Evented::IRC::Parser;
+use Evented::IRC::Handlers;
+use Evented::IRC::Utils;
+use Evented::IRC::Functions::IRC;
+use Evented::IRC::Functions::Server;
+use Evented::IRC::Functions::Channel;
+use Evented::IRC::Functions::User;
 
-our $VERSION = '6.6';
+our $VERSION = '6.7';
 
 # create a new IRC instance
 sub new {
@@ -70,7 +70,7 @@ sub configure {
     
     # apply default handlers.
     if (!$irc->{_applied_handlers}) {
-        $irc->IRC::Handlers::apply_handlers();
+        $irc->Evented::IRC::Handlers::apply_handlers();
         $irc->{_applied_handlers} = 1;
         
         $irc->{id} = $c++.q(i);
@@ -78,9 +78,9 @@ sub configure {
 
     # create pool, server, and own user object.
     if (!$irc->{server}) {
-        $irc->{server}  = IRC::Server->new();
-        $irc->{pool}    = IRC::Pool->new(irc  => $irc);
-        $irc->{me}      = IRC::User->new(nick => $opts{nick});
+        $irc->{server}  = Evented::IRC::Server->new();
+        $irc->{pool}    = Evented::IRC::Pool->new(irc  => $irc);
+        $irc->{me}      = Evented::IRC::User->new(nick => $opts{nick});
         $irc->pool->add_user($irc->{me});
         $irc->pool->add_server($irc->{server});
         $irc->pool->retain($irc->{me}, 'me:is_me');
@@ -158,7 +158,7 @@ sub new_channel_from_name {
     return unless $prefix ~~ @prefixes;
     
     return $irc->pool->get_channel($name)
-    || $irc->pool->add_channel( IRC::Channel->new(
+    || $irc->pool->add_channel( Evented::IRC::Channel->new(
         pool => $irc->pool,
         name => $name
     ) );
@@ -175,7 +175,7 @@ sub new_user_from_nick {
     return if $prefix ~~ @prefixes;
     
     return $irc->user_from_nick($nick)
-    || $irc->pool->add_user( IRC::User->new(
+    || $irc->pool->add_user( Evented::IRC::User->new(
         pool => $irc->pool,
         nick => $nick
     ) );
@@ -194,7 +194,7 @@ sub new_user_from_string {
     $user_string =~ m/^:*(.+)!(.+)\@(.+)/ or return;
     my ($nick, $ident, $host) = ($1, $2, $3);
     return $irc->user_from_string($user_string)
-    || $irc->pool->add_user( IRC::User->new(nick => $nick) );
+    || $irc->pool->add_user( Evented::IRC::User->new(nick => $nick) );
         
     # TODO: host/ident change.
     
@@ -227,7 +227,7 @@ sub new_server_from_name {
     my ($irc, $name) = @_;
     $name =~ s/^://;
     return $irc->pool->get_server($name)
-    || $irc->pool->add_server( IRC::Server->new(
+    || $irc->pool->add_server( Evented::IRC::Server->new(
         pool => $irc->pool,
         name => $name
     ) );
@@ -305,7 +305,7 @@ sub _match {
 
 # arg parser alias.
 sub args;
-*args = *IRC::Parser::args;
+*args = *Evented::IRC::Parser::args;
 
 # fetchers.
 sub id     { shift->{id}     }

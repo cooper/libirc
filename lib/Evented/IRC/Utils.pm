@@ -6,7 +6,7 @@
 # Copyright (c) 2012, Mitchell Cooper              |
 # Utils.pm: various IRC-related tools              |
 #---------------------------------------------------
-package IRC::Utils;
+package Evented::IRC::Utils;
 
 use warnings;
 use strict;

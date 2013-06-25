@@ -6,7 +6,7 @@
 # Copyright (c) 2012, Mitchell Cooper                     |
 # IRC/Functions/Channel: send functions for channel class |
 #----------------------------------------------------------
-package IRC::Functions::Channel;
+package Evented::IRC::Functions::Channel;
 
 use warnings;
 use strict;

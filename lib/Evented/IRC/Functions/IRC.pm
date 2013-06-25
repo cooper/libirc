@@ -6,7 +6,7 @@
 # Copyright (c) 2012, Mitchell Cooper              |
 # IRC/Functions/IRC: send functions for IRC class  |
 #---------------------------------------------------
-package IRC::Functions::IRC;
+package Evented::IRC::Functions::IRC;
 
 use warnings;
 use strict;

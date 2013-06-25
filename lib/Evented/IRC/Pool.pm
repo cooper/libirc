@@ -2,7 +2,7 @@
 # libirc: an insanely flexible perl IRC library.   |
 # Copyright (c) 2012-13, Mitchell Cooper           |
 #---------------------------------------------------
-package IRC::Pool;
+package Evented::IRC::Pool;
 
 use warnings;
 use strict;
@@ -259,9 +259,9 @@ sub references {
 sub _type_of {
     my $obj = shift;
     my $type = 'objects';
-    $type = 'users'    if $obj->isa('IRC::User');
-    $type = 'channels' if $obj->isa('IRC::Channel');
-    $type = 'servers'  if $obj->isa('IRC::Server');
+    $type = 'users'    if $obj->isa('Evented::IRC::User');
+    $type = 'channels' if $obj->isa('Evented::IRC::Channel');
+    $type = 'servers'  if $obj->isa('Evented::IRC::Server');
     return $type;
 }
 

@@ -5,7 +5,7 @@
 # Copyright (c) 2011, the NoTrollPlzNet developers |
 # Copyright (c) 2012-13, Mitchell Cooper           |
 #---------------------------------------------------
-package IRC::Parser;
+package Evented::IRC::Parser;
 
 use warnings;
 use strict;
@@ -227,7 +227,7 @@ sub args {
         if (blessed $arg) {
         
             # IRC object.
-            $irc = $arg if $arg->isa('IRC');
+            $irc = $arg if $arg->isa('Evented::IRC');
             
             # event object.
             if ($arg->isa('EventedObject::EventFire')) {
@@ -357,8 +357,8 @@ sub args {
             # return undef and cause the handler to be canceled.
             #
             if (defined $return && defined $opt) {
-                $return = undef if $opt eq 'u' && !$return->isa('IRC::User');
-                $return = undef if $opt eq 's' && !$return->isa('IRC::Server');
+                $return = undef if $opt eq 'u' && !$return->isa('Evented::IRC::User');
+                $return = undef if $opt eq 's' && !$return->isa('Evented::IRC::Server');
             }
             
         }

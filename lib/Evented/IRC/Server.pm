@@ -5,11 +5,11 @@
 # Copyright (c) 2011, the NoTrollPlzNet developers |
 # Copyright (c) 2012-13, Mitchell Cooper           |
 #---------------------------------------------------
-package IRC::Server;
+package Evented::IRC::Server;
 
 use warnings;
 use strict;
-use parent qw(EventedObject IRC::Functions::Server);
+use parent qw(EventedObject Evented::IRC::Functions::Server);
 use 5.010;
 
 use overload

@@ -5,7 +5,7 @@
 # Copyright (c) 2011, the NoTrollPlzNet developers  |
 # Copyright (c) 2012-13, Mitchell Cooper            |
 #----------------------------------------------------
-package IRC::Functions::Server;
+package Evented::IRC::Functions::Server;
 
 use warnings;
 use strict;

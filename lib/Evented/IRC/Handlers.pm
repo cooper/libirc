@@ -6,7 +6,7 @@
 # Copyright (c) 2012, Mitchell Cooper              |
 # Handlers.pm: internal IRC command handlers       |
 #---------------------------------------------------
-package IRC::Handlers;
+package Evented::IRC::Handlers;
 
 use warnings;
 use strict;
@@ -89,7 +89,7 @@ sub handle_myinfo {
 
 # RPL_ISUPPORT (005): Server support information.
 sub handle_isupport {
-    my ($irc, @stuff) = IRC::args(@_, 'irc @stuff');
+    my ($irc, @stuff) = Evented::IRC::args(@_, 'irc @stuff');
     pop @stuff; # the last arg is :are supported by this server.
     foreach my $support (@stuff) { 
         my $val = 1;
@@ -124,7 +124,7 @@ sub handle_whoend {
 
 # RPL_TOPIC (332): Channel topic.
 sub handle_got_topic {
-    my ($channel, $topic) = IRC::args(@_, 'channel *topic');
+    my ($channel, $topic) = Evented::IRC::args(@_, 'channel *topic');
     
     # store the topic temporarily until we get RPL_TOPICWHOTIME.
     $channel->{temp_topic} = $topic;
@@ -132,7 +132,7 @@ sub handle_got_topic {
 
 # RPL_TOPICWHOTIME (333): Channel topic setter and set time.
 sub handle_got_topic_time {
-    my ($channel, $setter, $settime) = IRC::args(@_, 'channel *setter *settime');
+    my ($channel, $setter, $settime) = Evented::IRC::args(@_, 'channel *setter *settime');
 
     # set the topic.
     $channel->set_topic(delete $channel->{temp_topic}, $setter, $settime);
@@ -141,7 +141,7 @@ sub handle_got_topic_time {
 
 # RPL_WHOREPLY (352): WHO query reply.
 sub handle_whoreply {
-    my ($irc, $channel, @params) = IRC::args(@_, 'irc channel rest');
+    my ($irc, $channel, @params) = Evented::IRC::args(@_, 'irc channel rest');
     
     # the hops is in the real name for some reason.
     if ($params[$#params] =~ m/^[0-9]/) {
@@ -156,7 +156,7 @@ sub handle_whoreply {
 
 # RPL_NAMREPLY (353): Channel NAMES reply.
 sub handle_namesreply {
-    my ($irc, $channel, @names) = IRC::args(@_, 'irc .type channel @names');
+    my ($irc, $channel, @names) = Evented::IRC::args(@_, 'irc .type channel @names');
 
     NICK: foreach my $nick (@names) {
 
@@ -195,7 +195,7 @@ sub handle_namesreply {
 
 # RPL_WHOSPCRPL (354): WHO query reply on WHOX-enabled servers.
 sub handle_whoxreply {
-    my ($irc, $id, $channel, @params) = IRC::args(@_, 'irc *id channel rest');
+    my ($irc, $id, $channel, @params) = Evented::IRC::args(@_, 'irc *id channel rest');
     _handle_who_long($irc, $id, @params);
 }
 
@@ -216,13 +216,13 @@ sub handle_endofmotd {
 
 # ERR_NICKNAMEINUSE (433): Desired nickname is currently in use.
 sub handle_nick_taken {
-    my ($irc, $nick) = IRC::args(@_, 'irc *nick');
+    my ($irc, $nick) = Evented::IRC::args(@_, 'irc *nick');
     $irc->fire_event(nick_taken => $nick);
 }
 
 # RPL_LOGGEDIN (900): The client logged in.
 sub handle_loggedin {
-    my ($irc, $account) = IRC::args(@_, 'irc *account');
+    my ($irc, $account) = Evented::IRC::args(@_, 'irc *account');
     $irc->{me}->set_account($account);
 }
 
@@ -247,13 +247,13 @@ sub handle_sasldone {
 
 # PING: Ping from server.
 sub handle_ping {
-    my ($irc, $response) = IRC::args(@_, 'irc *response');
+    my ($irc, $response) = Evented::IRC::args(@_, 'irc *response');
     $irc->send("PONG :$response");
 }
 
 # PRIVMSG: Message to user or channel.
 sub handle_privmsg {
-    my ($irc, $source, $target, $msg) = IRC::args(@_, 'irc +source +target *msg') or return;
+    my ($irc, $source, $target, $msg) = Evented::IRC::args(@_, 'irc +source +target *msg') or return;
 
     # fire events.
     EventedObject::fire_events_together(
@@ -266,7 +266,7 @@ sub handle_privmsg {
 
 # NICK: User changed nickname.
 sub handle_nick {
-    my ($user, $nick) = IRC::args(@_, '+source(u) *nick') or return;
+    my ($user, $nick) = Evented::IRC::args(@_, '+source(u) *nick') or return;
     $user->set_nick($nick);
 }
 
@@ -274,7 +274,7 @@ sub handle_nick {
 # this handler supports the extended-join IRCv3 capability.
 sub handle_join {
     my ($irc, $user, $channel, $account, $realname) =
-    IRC::args(@_, 'irc +source(u) +channel *acct *real') or return;
+    Evented::IRC::args(@_, 'irc +source(u) +channel *acct *real') or return;
     
     # add user to channel.
     $channel->add_user($user);
@@ -311,7 +311,7 @@ sub handle_join {
 # PART: User parted a channel.
 sub handle_part {
     my ($irc, $user, $channel, $reason) =
-    IRC::args(@_, 'irc +source(u) +channel *reason') or return;
+    Evented::IRC::args(@_, 'irc +source(u) +channel *reason') or return;
 
     # remove the user.
     $channel->remove_user($user);
@@ -326,7 +326,7 @@ sub handle_part {
 
 # QUIT: User disconnect from the server.
 sub handle_quit {
-    my ($irc, $user, $reason) = IRC::args(@_, 'irc +source(u) *reason') or return;
+    my ($irc, $user, $reason) = Evented::IRC::args(@_, 'irc +source(u) *reason') or return;
     
     $user->fire_event(quit => $reason);
     $irc->pool->remove_user($user);
@@ -334,7 +334,7 @@ sub handle_quit {
 
 # CAP: Negotiates capabilities with the server.
 sub handle_cap {
-    my ($irc, $subcommand, @params) = IRC::args(@_, 'irc .target *subcmd @caps');
+    my ($irc, $subcommand, @params) = Evented::IRC::args(@_, 'irc .target *subcmd @caps');
     
     $subcommand = lc $subcommand;
     $irc->fire_event("cap_$subcommand" => @params);
@@ -342,13 +342,13 @@ sub handle_cap {
 
 # ACCOUNT: IRCv3 account-notify capability.
 sub handle_account {
-    my ($user, $account) = IRC::args(@_, '+source(u) *account') or return;
+    my ($user, $account) = Evented::IRC::args(@_, '+source(u) *account') or return;
     $user->set_account($account eq '*' ? undef : $account);
 }
 
 # AWAY: IRCv3 away-notify capability.
 sub handle_away {
-    my ($user, $reason) = IRC::args(@_, '+source(u) *reason') or return;
+    my ($user, $reason) = Evented::IRC::args(@_, '+source(u) *reason') or return;
     $user->set_away($reason);
 }
 

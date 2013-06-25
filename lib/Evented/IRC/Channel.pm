@@ -6,11 +6,11 @@
 # Copyright (c) 2012-13, Mitchell Cooper           |
 # Channel.pm: the channel object class.            |
 #---------------------------------------------------
-package IRC::Channel;
+package Evented::IRC::Channel;
 
 use warnings;
 use strict;
-use parent qw(EventedObject IRC::Functions::Channel);
+use parent qw(EventedObject Evented::IRC::Functions::Channel);
 use utf8;
 use 5.010;
 use overload
@@ -159,17 +159,17 @@ sub _match {
     return unless blessed $other;
     
     # for channels, I'm not sure what to do yet.
-    if ($other->isa('IRC::Channel')) {
+    if ($other->isa('Evented::IRC::Channel')) {
         return $channel->irc == $other->irc;
     }
     
     # if it's a user, check if the user is in the channel.
-    if ($other->isa('IRC::User')) {
+    if ($other->isa('Evented::IRC::User')) {
         return $channel->has_user($other);
     }
     
     # for IRC objects, check if the channel belongs to that server.
-    if ($other->isa('IRC')) {
+    if ($other->isa('Evented::IRC')) {
         return $other == $channel->irc;
     }
     

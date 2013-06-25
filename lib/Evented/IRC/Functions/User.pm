@@ -6,7 +6,7 @@
 # Copyright (c) 2012, Mitchell Cooper               |
 # IRC/Functions/User: send functions for user class |
 #----------------------------------------------------
-package IRC::Functions::User;
+package Evented::IRC::Functions::User;
 
 use warnings;
 use strict;
