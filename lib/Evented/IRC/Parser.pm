@@ -230,7 +230,7 @@ sub args {
             $irc = $arg if $arg->isa('Evented::IRC');
             
             # event object.
-            if ($arg->isa('EventedObject::EventFire')) {
+            if ($arg->isa('Evented::Object::EventFire')) {
                 $irc   = $arg->object if !$irc;
                 $event = $arg;
             }

@@ -10,7 +10,7 @@ package Evented::IRC::Channel;
 
 use warnings;
 use strict;
-use parent qw(EventedObject Evented::IRC::Functions::Channel);
+use parent qw(Evented::Object Evented::IRC::Functions::Channel);
 use utf8;
 use 5.010;
 use overload
@@ -75,7 +75,7 @@ sub remove_user {
     my ($channel, $user) = @_;
     return unless $channel->has_user($user);
     
-    EventedObject::fire_events_together(
+    Evented::Object::fire_events_together(
         [ $channel, user_remove     =>  $user    ],
         [ $user,    remove_channel  =>  $channel ]
     );

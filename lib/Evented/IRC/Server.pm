@@ -9,7 +9,7 @@ package Evented::IRC::Server;
 
 use warnings;
 use strict;
-use parent qw(EventedObject Evented::IRC::Functions::Server);
+use parent qw(Evented::Object Evented::IRC::Functions::Server);
 use 5.010;
 
 use overload
@@ -157,7 +157,7 @@ sub remove_user {
     my ($server, $user) = @_;
     return unless $server->has_user($user);
     
-    EventedObject::fire_events_together(
+    Evented::Object::fire_events_together(
         [ $server,  user_remove     =>  $user    ],
         [ $user,    remove_server   =>  $server  ]
     );

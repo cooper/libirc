@@ -10,7 +10,7 @@ package Evented::IRC::User;
 
 use warnings;
 use strict;
-use parent qw(EventedObject Evented::IRC::Functions::User);
+use parent qw(Evented::Object Evented::IRC::Functions::User);
 use 5.010;
 
 use overload
@@ -57,7 +57,7 @@ sub set_nick {
     $user->pool->set_user_nick($user, $old_nick, $nick);
 
     # fire events
-    EventedObject::fire_events_together(
+    Evented::Object::fire_events_together(
         [ $user, nickname_changed => $old_nick, $nick ],
         [ $user, nick_change      => $old_nick, $nick ] # compatibility.
     );

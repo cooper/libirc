@@ -25,7 +25,7 @@ use warnings;
 use strict;
 use utf8;
 use 5.010;
-use parent qw(EventedObject Evented::IRC::Parser Evented::IRC::Functions::IRC);
+use parent qw(Evented::Object Evented::IRC::Parser Evented::IRC::Functions::IRC);
 use overload
     '""'     => sub { shift->{id} },            # string context  = ID
     '0+'     => sub { shift },                  # numeric context = memory address 
@@ -35,7 +35,7 @@ use overload
     fallback => 1;
 
 
-use EventedObject;
+use Evented::Object;
 
 use Scalar::Util qw(blessed);
 
@@ -51,7 +51,7 @@ use Evented::IRC::Functions::Server;
 use Evented::IRC::Functions::Channel;
 use Evented::IRC::Functions::User;
 
-our $VERSION = '6.7';
+our $VERSION = '6.8';
 
 # create a new IRC instance
 sub new {

@@ -256,7 +256,7 @@ sub handle_privmsg {
     my ($irc, $source, $target, $msg) = Evented::IRC::args(@_, 'irc +source +target *msg') or return;
 
     # fire events.
-    EventedObject::fire_events_together(
+    Evented::Object::fire_events_together(
         [ $irc,    privmsg     => $source, $target, $msg ], # generic privmsg for any source or target
         [ $target, got_privmsg => $source, $msg          ], # incoming from source
         [ $source, privmsg     => $target, $msg          ]  # outgoing from source
@@ -286,7 +286,7 @@ sub handle_join {
     }
     
     # fire events.
-    EventedObject::fire_events_together(
+    Evented::Object::fire_events_together(
         [ $user,    joined_channel => $channel ],
         [ $channel, user_joined    => $user    ]
     );
@@ -317,7 +317,7 @@ sub handle_part {
     $channel->remove_user($user);
 
     # first events.
-    EventedObject::fire_events_together(
+    Evented::Object::fire_events_together(
         [ $channel, user_parted    => $user, $reason    ],
         [ $user,    parted_channel => $channel, $reason ]
     );
