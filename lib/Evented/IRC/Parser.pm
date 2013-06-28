@@ -79,6 +79,10 @@ sub handle_data {
     
     # it's a numeric.
     if (looks_like_number($command)) {
+    
+        # fetch our nickname from RPL_WELCOME.
+        $irc->{me}->set_nick($args[0]) if $command eq '001';
+    
         shift @args; # remove the target, because it will always be the client.
         $irc->fire_event("num_$command" => $tags, $source, @args);
     }

@@ -51,7 +51,7 @@ use Evented::IRC::Functions::Server;
 use Evented::IRC::Functions::Channel;
 use Evented::IRC::Functions::User;
 
-our $VERSION = '6.8';
+our $VERSION = '6.9';
 
 # create a new IRC instance
 sub new {

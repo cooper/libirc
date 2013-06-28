@@ -16,6 +16,7 @@ my %handlers = (
 
     # NUMERICS
 
+  # num_001 => \&handle_welcome,        # RPL_WELCOME:          server welcomining user
     num_004 => \&handle_myinfo,         # RPL_MYINFO:           server version and info
     num_005 => \&handle_isupport,       # RPL_ISUPPORT:         server support information
     num_315 => \&handle_whoend,         # RPL_ENDOFWHO:         End of WHO query
@@ -79,6 +80,9 @@ sub apply_handlers {
 ####################
 ### IRC NUMERICS ###
 ##########################################################################################
+
+# RPL_WELCOME (001): Server welcoming user to server.
+# handled in the parser.
 
 # RPL_MYINFO (004): Server version and information.
 sub handle_myinfo {
