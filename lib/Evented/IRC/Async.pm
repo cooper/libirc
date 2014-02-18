@@ -40,8 +40,7 @@ use 5.010;
 
 sub new {
     my ($class, %opts) = @_;
-    my $self = bless \%opts, $class;
-    $self->configure(%opts);
+    my $self = $class->SUPER::new(%opts);
     $self->Evented::IRC::configure(%opts);
     return $self;
 }
@@ -64,7 +63,7 @@ sub on_read_line;
 
 sub configure {
     my ($self, %opts) = @_;
-    
+    print "called configure on async. $$opts{host}\n";
     # if ssl, use IO::Socket::SSL.
     if ($opts{ssl}) {
         require IO::Socket::SSL;
@@ -89,7 +88,6 @@ sub configure {
         $self->{$key} = $val;
     }
     
-    # call IO::Async::Protocol's configure().
     $self->SUPER::configure(%opts);
 
 }
