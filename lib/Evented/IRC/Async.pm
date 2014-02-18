@@ -40,7 +40,7 @@ use 5.010;
 
 sub new {
     my ($class, %opts) = @_;
-    my $self = $class->SUPER::new(%opts);
+    my $self = bless \%opts, $class;
     $self->configure(%opts);
     $self->Evented::IRC::configure(%opts);
     return $self;
