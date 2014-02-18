@@ -63,7 +63,7 @@ sub on_read_line;
 
 sub configure {
     my ($self, %opts) = @_;
-    print "called configure on async. $$opts{host}\n";
+    print "called configure on async. $opts{host}\n";
     # if ssl, use IO::Socket::SSL.
     if ($opts{ssl}) {
         require IO::Socket::SSL;
