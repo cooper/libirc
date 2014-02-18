@@ -86,7 +86,7 @@ sub apply_handlers {
 
 # RPL_MYINFO (004): Server version and information.
 sub handle_myinfo {
-    my ($irc, $source) = Event::IRC::args(@_, 'irc source');
+    my ($irc, $source) = Evented::IRC::args(@_, 'irc source');
     $irc->pool->set_server_name($irc->server, $irc->server->{name}, $source->{name});
     $irc->server->{name} = $source->{name};
 }
