@@ -40,6 +40,7 @@ use 5.010;
 
 sub new {
     my ($class, %opts) = @_;
+    print "new ::Async: $opts{host}\n";
     my $self = $class->SUPER::new(%opts);
     $self->configure(%opts);
     $self->Evented::IRC::configure(%opts);
