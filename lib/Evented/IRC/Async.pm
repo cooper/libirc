@@ -41,6 +41,7 @@ use 5.010;
 sub new {
     my ($class, %opts) = @_;
     my $self = $class->SUPER::new(%opts);
+    $self->configure(%opts);
     $self->Evented::IRC::configure(%opts);
     return $self;
 }
@@ -89,11 +90,7 @@ sub configure {
     }
     
     # call IO::Async::Protocol's configure().
-    $self->SUPER::configure(
-        %opts,
-        host    => $self->{host},
-        service => $self->{port}
-    );
+    $self->SUPER::configure(%opts);
 
 }
 
