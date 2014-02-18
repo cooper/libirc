@@ -88,7 +88,12 @@ sub configure {
         $self->{$key} = $val;
     }
     
-    $self->SUPER::configure(%opts);
+    # call IO::Async::Protocol's configure().
+    $self->SUPER::configure(
+        %opts,
+        host    => $self->{host},
+        service => $self->{port}
+    );
 
 }
 
